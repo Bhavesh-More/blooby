@@ -140,7 +140,7 @@ export function limb(type: 'arm' | 'leg', side: -1 | 1, over: Partial<LimbRig> =
 export const onMascot = (x: number, y: number): Partial<RigNode> => ({ parentId: 'body', surface: { yaw: 0, pitch: 0, mapped: false, flatOffset: { x, y } } });
 const onSurface = (yaw: number, pitch: number): Partial<RigNode> => ({ parentId: 'body', surface: { yaw, pitch, mapped: true } });
 
-const HI_BUBBLE = `<svg viewBox="0 0 132 92">
+export const HI_BUBBLE = `<svg viewBox="0 0 132 92">
   <path d="M20 4H112A16 16 0 0 1 128 20V54A16 16 0 0 1 112 70H52L28 88L36 70H20A16 16 0 0 1 4 54V20A16 16 0 0 1 20 4Z" fill="#ffffff"/>
   <rect x="30" y="20" width="9" height="36" rx="3" fill="#141318"/><rect x="57" y="20" width="9" height="36" rx="3" fill="#141318"/>
   <rect x="34" y="33" width="28" height="9" rx="3" fill="#141318"/>

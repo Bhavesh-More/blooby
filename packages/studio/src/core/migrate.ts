@@ -5,6 +5,7 @@ import { appPresets } from './appPresets';
 import { cinematicPresets } from './cinematicPresets';
 import { creativePresets } from './creativePresets';
 import { mascotKitPresets } from './mascotKit';
+import { sailorsPresets } from './sailorsPresets';
 import { slug } from './stateMachine';
 import { ensureFaces } from './mascot';
 import { unpackPresets } from './presetRefs';
@@ -31,7 +32,7 @@ import type { Block, Modifier, Project, Track } from './types';
  */
 
 /** Bump this with every new entry in MIGRATIONS. `defaultProject()` stamps it. */
-export const SCHEMA_VERSION = 14;
+export const SCHEMA_VERSION = 15;
 
 interface Migration {
   /** the version this step produces */
@@ -320,6 +321,17 @@ const MIGRATIONS: Migration[] = [
      * project warns instead of silently rounding the body off and saving that back.
      */
     run() {},
+  },
+  {
+    to: 15,
+    label: 'sailors presets',
+    /** The Sailors mascot's fifteen states (core/sailorsPresets.ts), after the character presets. */
+    run(p) {
+      if (!Array.isArray(p.presets)) return;
+      const have = new Set(p.presets.map((x) => x?.id));
+      const last = Math.max(-1, ...creativePresets().map((t) => p.presets.findIndex((x) => x?.id === t.id)));
+      p.presets.splice(last + 1 || p.presets.length, 0, ...sailorsPresets().filter((x) => !have.has(x.id)));
+    },
   },
 ];
 

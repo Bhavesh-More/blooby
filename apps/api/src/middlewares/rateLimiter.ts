@@ -19,10 +19,26 @@ import { redis } from '../config/redis.js';
  * failing every request because the thing that counts them is down is a worse outage than
  * the one it would prevent.
  */
+/**
+ * A RedisStore that survives Redis being down when it starts.
+ *
+ * The stock store loads its Lua scripts once, at init, and keeps the promise. If Redis is not
+ * there yet, that promise is REJECTED for good: every later EVALSHA awaits it and rethrows
+ * the connection error, never the NOSCRIPT that would make it reload — so the limiter stays
+ * off (quietly, thanks to passOnStoreError) even after Redis comes back. Here a load that
+ * fails resolves to a sha no script has; the first call once Redis answers gets NOSCRIPT,
+ * and the store's own retry loads the script for real.
+ */
+const UNLOADED = '0000000000000000000000000000000000000000';
+class ResilientRedisStore extends RedisStore {
+  override loadIncrementScript(key?: string) { return super.loadIncrementScript(key).catch(() => UNLOADED); }
+  override loadGetScript(key?: string) { return super.loadGetScript(key).catch(() => UNLOADED); }
+}
+
 export function store(prefix: string): Store | undefined {
   const client = redis;
   if (!client) return undefined;
-  return new RedisStore({
+  return new ResilientRedisStore({
     prefix: `rl:${prefix}:`,
     sendCommand: (...args: string[]) => client.call(...(args as [string, ...string[]])) as Promise<never>,
   });

@@ -72,6 +72,7 @@ Everything else reads a `Project`.
 | `core/appPresets.ts` | the ten app-screen presets (refresh, search, empty states, tap to start…) |
 | `core/mascotKit.ts` | the app mascot kit: generating/failed/completed, cards, hero, cloud, empty and error states, celebrations, reactions — Lottie-safe, `KIT_ASSETS` maps presets to `.lottie` states. Also builds five of the app presets |
 | `core/cinematicPresets.ts` | the ten cinematic presets (portal, morph, walk + parallax, particles, liquid, glitch, doodle, title, card flip, showreel) and `sequence()` |
+| `core/sailorsPresets.ts` | the Sailors mascot's 15 states and its 7 projects (`SAILORS_PROJECTS`, `sailorsProject`). Authored as functions of time sampled into bezier keys (`Motion`, `puppet`, `sample`); knee-less legs, planted feet. `pnpm --filter @blooby/api seed:sailors <email>` puts the projects in an account |
 | `core/effects.ts` | the layer effect stack (`EFFECTS`): glow, blur, shadow, RGB split, slices, scanlines, flicker, jitter, echo, goo |
 | `core/mascot.ts` | what a mascot is: `makeMascot`, roles, `mascotOf`, lanes, `retargetId` (a preset onto another mascot) |
 | `core/text.ts` | text layout and glyph placement — lines, arcs, along a path, per-letter motion |

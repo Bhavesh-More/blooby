@@ -13,6 +13,7 @@ import { cinematicPresets } from './cinematicPresets';
 import { creativePresets } from './creativePresets';
 import { quietEffect } from './effects';
 import { mascotKitPresets } from './mascotKit';
+import { sailorsPresets } from './sailorsPresets';
 import { BONE, faceOf, INK, makeBody, makeEye, makeFace, retargetId, roleOf } from './mascot';
 
 export { uid } from './id';
@@ -111,6 +112,8 @@ export function builtinPresets(): Preset[] {
     ...cinematicPresets(),
     // then the characters: the Cartoon look and ten expressive presets — core/creativePresets.ts
     ...creativePresets(),
+    // then the Sailors mascot: fifteen app states, the character and its scenes — core/sailorsPresets.ts
+    ...sailorsPresets(),
     {
       // no tracks at all — dropped into a sequence it just holds whatever pose already
       // precedes it (the rig's own rest pose if it's first). The "base state" clip §8

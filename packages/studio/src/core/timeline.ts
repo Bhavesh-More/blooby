@@ -103,7 +103,14 @@ export function lastKeyframe(tl: Timeline): number {
 }
 
 export function derivedDuration(tl: Timeline): number {
-  return Math.max(1000, blocksEnd(tl), lastKeyframe(tl) + 200, tl.durationOverrideMs ?? 0);
+  const last = lastKeyframe(tl);
+  // A loop that says how long it is, with every key inside that length, ends exactly there.
+  // The 200ms of padding is room past loose keys; on a loop authored to close on itself it
+  // is a held pose at the seam — a hitch on every repeat.
+  if (tl.loop && tl.durationOverrideMs !== undefined && tl.durationOverrideMs >= last) {
+    return Math.max(1000, blocksEnd(tl), tl.durationOverrideMs);
+  }
+  return Math.max(1000, blocksEnd(tl), last + 200, tl.durationOverrideMs ?? 0);
 }
 
 /** Rewrite block durations and drag every block-owned keyframe along with them. */

@@ -35,8 +35,20 @@ function open(role: string): Redis | null {
     retryStrategy: (times) => Math.min(times * 200, 5_000),
     connectionName: `blooby-${role}`,
   });
-  // ioredis emits 'error' on every failed reconnect; unhandled, that is a crashed process
-  client.on('error', (e: Error) => console.warn(`[redis:${role}] ${e.message}`));
+  // ioredis emits 'error' on every failed reconnect; unhandled, that is a crashed process. But
+  // it is one outage, not one per retry: say so once (a refused connection's message is empty
+  // — the code is what says what happened) and once more when it is back.
+  let down = false;
+  client.on('error', (e: Error & { code?: string }) => {
+    if (down) return;
+    down = true;
+    console.warn(`[redis:${role}] unreachable at ${env.REDIS_URL} (${e.message || e.code || 'connection failed'}) — running without it, retrying quietly`);
+  });
+  client.on('ready', () => {
+    if (!down) return;
+    down = false;
+    console.log(`[redis:${role}] back`);
+  });
   return client;
 }
 

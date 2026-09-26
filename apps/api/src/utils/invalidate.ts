@@ -42,7 +42,14 @@ let listening = false;
 export function listenForInvalidations() {
   if (listening || !redisSub) return;
   listening = true;
-  redisSub.subscribe(CHANNEL).catch((e: Error) => console.warn(`[invalidate] ${e.message}`));
+  // ioredis re-subscribes on reconnect only to channels it subscribed to successfully, so a
+  // subscribe that failed because Redis was down at boot would never be tried again. Try on
+  // every (re)connect instead — subscribing twice to one channel is a no-op. The outage
+  // itself is already logged by config/redis.ts.
+  const sub = redisSub;
+  const subscribe = () => { sub.subscribe(CHANNEL).catch(() => {}); };
+  subscribe();
+  sub.on('ready', subscribe);
   redisSub.on('message', (channel: string, message: string) => {
     if (channel !== CHANNEL) return;
     const at = message.indexOf('\u0000');

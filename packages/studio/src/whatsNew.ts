@@ -38,6 +38,19 @@ const step = (element: string, title: string, description: string): DriveStep =>
 
 export const RELEASES: Release[] = [
   {
+    version: '2026.09.27',
+    date: '27 September 2026',
+    title: 'The Sailors mascot',
+    items: [
+      {
+        id: 'sailors-presets', surface: 'editor',
+        title: 'Eighteen new states for a round little mascot',
+        body: 'Head scratch, waiting for mail, covering its eyes, a happy idle, a sad slump, a peek over a card, a “Hii!” wave, a victory bounce, hugging an empty bookmark, pointing the way back, reading a script, a sleepy wait — four streak scenes (a cracked heart with a crowd of friends, a spent restore, an expired streak, an alarm clock ringing down the last minutes), a march with a flame held high, and a full 😭 wail with tears flying. Every one is a seamless loop, with squash that keeps its volume, hands and feet that trail the body, and legs that bend like rubber instead of at a knee. Drop one onto your own mascot from Presets.',
+        tour: [step('rail-left', 'Find them in Presets', 'Scroll to the Sailors presets, after the character ones — each previews on your own mascot before you add it.')],
+      },
+    ],
+  },
+  {
     version: '2026.09.21',
     date: '21 September 2026',
     title: 'The cloud got quick',

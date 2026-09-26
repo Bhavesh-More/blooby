@@ -24,6 +24,7 @@ export { compOf } from './core/comp';
 export { migrateProject, SCHEMA_VERSION } from './core/migrate';
 export { packProject, unpackPresets } from './core/presetRefs';
 export { defaultProject, builtinPresets } from './core/defaults';
+export { SAILORS_PROJECTS, sailorsProject } from './core/sailorsPresets';
 export { activeTimeline, type Project, type Preset, type Expression } from './core/types';
 /** core/types.ts as text — the whole data model with the reasoning in its comments */
 export { default as PROJECT_TYPES_SOURCE } from './core/types.ts?raw';

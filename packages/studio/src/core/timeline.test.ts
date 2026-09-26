@@ -2,7 +2,7 @@ import { it } from 'vitest';
 import { check } from './testkit';
 import { evaluateRig } from './scene';
 import { defaultProject } from './defaults';
-import { activeTransitionAt, DEFAULT_TRANSITION_MS, explicitTransitionFor } from './timeline';
+import { activeTransitionAt, DEFAULT_TRANSITION_MS, derivedDuration, explicitTransitionFor } from './timeline';
 import { buildDotLottie } from '../export/dotlottie';
 import { useEditor } from './store';
 import { activeTimeline } from './types';
@@ -59,4 +59,13 @@ import { activeTimeline } from './types';
   it('the .lottie bundles its states as one composition', check(bundle.animations.length === 1, bundle.animations.join(',')));
 
   ed3().loadProject(defaultProject());
+}
+
+// --- a loop authored to close on itself ends where it says, with no held pose at the seam --
+{
+  const key = (time: number) => ({ id: `k${time}`, time, value: 0, easingOut: { type: 'preset' as const, name: 'easeInOut' as const } });
+  const tl = { id: 't', name: 'loop', tracks: [{ id: 'tr', nodeId: 'body', property: 'flatOffset.y', keyframes: [key(0), key(3600)] }], modifiers: [], blocks: [], durationMode: 'custom' as const, timelineDurationMs: 3600, durationOverrideMs: 3600, loop: true };
+  it('a closed loop is exactly its own length', check(derivedDuration(tl) === 3600, String(derivedDuration(tl))));
+  it('a timeline that does not loop still gets room past its last key', check(derivedDuration({ ...tl, loop: false }) === 3800, String(derivedDuration({ ...tl, loop: false }))));
+  it('and so does a loop whose keys run past its length', check(derivedDuration({ ...tl, durationOverrideMs: 3000 }) === 3800));
 }

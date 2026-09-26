@@ -89,6 +89,11 @@ SceneItem[] ─► ui/Mascot.tsx <Shapes>   stage, thumbs, admin splash, raster 
 - Placing: store `addBlock` → tracks offset by clip start + `attachPresetEffects` (modifiers,
   emitters, `addPresetLayers`, appearances). Preview: `presetPreviewProject(project, preset)`.
 - Authoring helpers in `core/showcase.ts`: `k, tr, both, squash, uniform, point, words, art, limb`.
+- `core/sailorsPresets.ts`: motion as functions of t → `sample()` keeps only needed keys, each with its exact slope as a
+  bezier handle (C1, seamless loops). `puppet()` writes a whole character (body over planted feet via the inverted body
+  frame, face, arc eyes, front arms/mittens); `framesOf()` maps face px ↔ world (aim a hand at another character).
+  Built once and cloned (~100ms). Scenes bring extra mascots as prefixed preset layers (`f1.body`…).
+- `derivedDuration`: a `loop` timeline whose `durationOverrideMs` covers its keys ends there (no 200ms tail = no seam hold).
 
 ## State machine
 - States = timelines. `SmTransition {from,to,conditions,logic,durationMs,easing}`.
