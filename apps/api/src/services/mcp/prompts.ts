@@ -20,7 +20,7 @@ export interface PromptDef {
 const LOOP = `Work in this loop and do not skip the looking:
 1. editor_get_state { level: "standard" } and render_frame — know what is there before changing it.
 2. preset_search for the closest existing animation, preset_get it, and copy its TIMING and EASING, not its content.
-3. transaction_begin, then edits in small batches (batch_execute is fine), checkpoint_create before anything drastic.
+3. transaction_begin, then send edits through batch_execute (up to 200 per call, counted as ONE call against the limit) rather than one tool call per edit; checkpoint_create before anything drastic.
 4. render_sequence over the span you changed, and evaluate at the key beats — compare with what you intended.
 5. critique { request } — fix every note it gives, then render again.
 6. transaction_commit, project_save.`;

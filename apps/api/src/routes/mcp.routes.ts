@@ -10,6 +10,7 @@ import { requireBearerAuth } from '@modelcontextprotocol/sdk/server/auth/middlew
 import { capabilities, CAPABILITY_VERSION, SCOPES, summaryOf } from '@blooby/studio/engine';
 import { env } from '../config/env.js';
 import { authenticate } from '../middlewares/authenticate.js';
+import { caller, store } from '../middlewares/rateLimiter.js';
 import { validate } from '../middlewares/validateDto.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { uuidParam } from '../dtos/common.js';
@@ -54,12 +55,16 @@ export const mcpRoutes = Router();
 // any origin: browser-based clients (the MCP Inspector) are fine — this is bearer auth, no cookies
 mcpRoutes.use(cors({ origin: true, exposedHeaders: ['Mcp-Session-Id', 'WWW-Authenticate'], allowedHeaders: ['Authorization', 'Content-Type', 'Mcp-Session-Id', 'Mcp-Protocol-Version', 'Last-Event-ID'] }));
 mcpRoutes.use(express.json({ limit: '4mb' }));
-mcpRoutes.use(bearer);
+// BEFORE `bearer`, which costs two round trips to Postgres: a flood from one token is refused
+// here without touching the pool everyone else is waiting on. Keyed on the (hashed, unverified)
+// token — a forged one only spends its own bucket. Above the per-account tool-call ceiling in
+// services/mcp/server.ts, which is the limit a well-behaved client actually meets.
 mcpRoutes.use(rateLimit({
-  windowMs: 60_000, limit: 6000, standardHeaders: 'draft-7', legacyHeaders: false,
-  keyGenerator: (req) => (req.auth ? principalOf(req).tokenId : 'anon'),
-  message: { jsonrpc: '2.0', error: { code: -32000, message: 'Too many requests — slow down.' }, id: null },
+  windowMs: 60_000, limit: 600, store: store('mcp'), passOnStoreError: true, keyGenerator: caller,
+  standardHeaders: 'draft-7', legacyHeaders: false,
+  message: { jsonrpc: '2.0', error: { code: -32000, message: 'Too many requests — slow down, and use batch_execute to send many edits in one call.' }, id: null },
 }));
+mcpRoutes.use(bearer);
 
 mcpRoutes.post('/', asyncHandler(async (req: Request, res: Response) => {
   const principal = principalOf(req);

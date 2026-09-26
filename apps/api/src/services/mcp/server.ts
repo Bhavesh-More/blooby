@@ -55,8 +55,9 @@ const inFlight = new Map<string, number>();
 /**
  * The per-minute ceilings, and the advice that goes with each.
  *
- * Generous on purpose: an agent building an animation makes hundreds of small edits, and
- * being throttled mid-run is worse than the load. These are an abuse ceiling, not a budget.
+ * An agent building an animation makes hundreds of small edits, and they belong in batch_execute
+ * (up to 200 per call, counted once) — so single calls are capped low enough that one account
+ * cannot tie up the server for everyone, and high enough that a batching agent never meets it.
  * The buckets do not stack — the FIRST pattern that matches is the only one a call counts
  * against, so a render spends renders and nothing else.
  *
@@ -67,7 +68,7 @@ const inFlight = new Map<string, number>();
 const LIMITS: { re: RegExp; max: number; what: string; advice: string }[] = [
   { re: /^render_/, max: 300, what: 'renders', advice: 'render at quality "preview" while iterating, and render_sequence to see several moments in one image instead of one call per frame.' },
   { re: /^export_start$/, max: 120, what: 'exports', advice: 'export once the animation is finished, not after each change; render_frame is the cheap way to check your work.' },
-  { re: /.*/, max: 6000, what: 'calls', advice: 'batch_execute runs many edits in one call, and a transaction commits them together.' },
+  { re: /.*/, max: 300, what: 'calls', advice: 'send edits through batch_execute — up to 200 in one call, which counts as ONE against this limit — instead of one call per edit.' },
 ];
 
 /** The ceilings, as a paragraph — so a client is told before it is refused. */

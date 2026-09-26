@@ -19,7 +19,7 @@ import { redis } from '../config/redis.js';
  * failing every request because the thing that counts them is down is a worse outage than
  * the one it would prevent.
  */
-function store(prefix: string): Store | undefined {
+export function store(prefix: string): Store | undefined {
   const client = redis;
   if (!client) return undefined;
   return new RedisStore({

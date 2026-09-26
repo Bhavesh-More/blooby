@@ -9,6 +9,8 @@ import { SCOPES, type Scope } from '@blooby/studio/engine';
 import { env } from '../../config/env.js';
 import { mcpRepository } from '../../repositories/mcp.repository.js';
 import { HttpError } from '../../utils/httpError.js';
+import { shared } from '../../utils/invalidate.js';
+import { ttlCache } from '../../utils/ttlCache.js';
 
 /**
  * Who may drive Blooby from an AI client, and with what.
@@ -77,7 +79,7 @@ export const tokensService = {
   async rotatePat(userId: string, id: string) {
     const old = await mcpRepository.tokenById(id);
     if (!old || old.userId !== userId || old.kind !== 'pat' || !live(old)) throw HttpError.notFound('No such token');
-    await mcpRepository.updateToken(id, { revokedAt: new Date() });
+    await mcpRepository.updateToken(id, { revokedAt: new Date() }).finally(forgetPrincipals);
     const days = old.expiresAt ? Math.ceil((old.expiresAt.getTime() - old.createdAt.getTime()) / 86400000) : undefined;
     return tokensService.createPat(userId, { name: old.name, scopes: old.scopes, mode: old.mode, expiresInDays: days });
   },
@@ -85,12 +87,12 @@ export const tokensService = {
   async revokePat(userId: string, id: string) {
     const t = await mcpRepository.tokenById(id);
     if (!t || t.userId !== userId || t.kind !== 'pat') throw HttpError.notFound('No such token');
-    await mcpRepository.updateToken(id, { revokedAt: new Date() });
+    await mcpRepository.updateToken(id, { revokedAt: new Date() }).finally(forgetPrincipals);
   },
 
   /** Disconnect an OAuth client: its code, access and refresh tokens all die together. */
   async revokeConnection(userId: string, grantId: string) {
-    if (!(await mcpRepository.revokeGrantOf(grantId, userId))) throw HttpError.notFound('No such connection');
+    if (!(await mcpRepository.revokeGrantOf(grantId, userId).finally(forgetPrincipals))) throw HttpError.notFound('No such connection');
   },
 
   /** PATs and OAuth connections, metadata only — never a secret. */
@@ -110,19 +112,30 @@ export const tokensService = {
   },
 
   /** Bearer → principal. Both OAuth access tokens and PATs land here. */
-  async verify(bearer: string): Promise<Principal> {
-    const t = await mcpRepository.tokenByHash(hash(bearer));
-    if (!t || (t.kind !== 'access' && t.kind !== 'pat') || !live(t) || !t.userId) throw new InvalidTokenError('Invalid, expired or revoked token');
-    // a write per request would be a write per tool call; once a minute is plenty for "last used"
-    if (!t.lastUsedAt || Date.now() - t.lastUsedAt.getTime() > 60_000) void mcpRepository.updateToken(t.id, { lastUsedAt: new Date() }).catch(() => {});
-    const client = t.clientId ? await mcpRepository.client(t.clientId) : null;
-    return {
-      userId: t.userId, clientId: t.clientId ?? `pat:${t.id}`, clientName: client?.clientName ?? (t.name || 'Personal token'),
-      tokenId: t.id, scopes: normaliseScopes(t.scopes), mode: modeOf(t.mode),
-      ...(t.expiresAt ? { expiresAt: Math.floor(t.expiresAt.getTime() / 1000) } : {}),
-    };
-  },
+  verify: (bearer: string): Promise<Principal> => principals(hash(bearer)),
 };
+
+/**
+ * Every MCP request is authenticated, and a lookup is two round trips (~1.2s) — so an agent
+ * making edits paid that per call, and a busy one held pool connections everyone else needed.
+ * Cached briefly by token hash; any revocation clears the lot, on every instance, so a revoked
+ * token stops at once. Expiry needs no help: the SDK's bearer check reads `expiresAt` each time.
+ * A bad token is not cached (ttlCache drops rejections), so it keeps costing its sender.
+ */
+const principals = ttlCache<Principal>(30_000, async (tokenHash) => {
+  const t = await mcpRepository.tokenByHash(tokenHash);
+  if (!t || (t.kind !== 'access' && t.kind !== 'pat') || !live(t) || !t.userId) throw new InvalidTokenError('Invalid, expired or revoked token');
+  // a write per request would be a write per tool call; once a minute is plenty for "last used"
+  if (!t.lastUsedAt || Date.now() - t.lastUsedAt.getTime() > 60_000) void mcpRepository.updateToken(t.id, { lastUsedAt: new Date() }).catch(() => {});
+  const client = t.clientId ? await mcpRepository.client(t.clientId) : null;
+  return {
+    userId: t.userId, clientId: t.clientId ?? `pat:${t.id}`, clientName: client?.clientName ?? (t.name || 'Personal token'),
+    tokenId: t.id, scopes: normaliseScopes(t.scopes), mode: modeOf(t.mode),
+    ...(t.expiresAt ? { expiresAt: Math.floor(t.expiresAt.getTime() / 1000) } : {}),
+  };
+});
+const forgetAll = shared('mcp-principals', () => principals.clear());
+const forgetPrincipals = () => forgetAll('*');
 
 const patMeta = (r: { id: string; name: string; scopes: string[]; mode: string; expiresAt: Date | null; lastUsedAt: Date | null; createdAt: Date }) =>
   ({ id: r.id, name: r.name, scopes: r.scopes, mode: r.mode, expiresAt: r.expiresAt, lastUsedAt: r.lastUsedAt, createdAt: r.createdAt });
@@ -226,7 +239,7 @@ export const oauthProvider: OAuthServerProvider = {
     if (!t || t.kind !== 'code' || t.clientId !== client.client_id || !live(t)) throw new InvalidGrantError('Invalid or expired authorization code');
     if (redirectUri && redirectUri !== t.redirectUri) throw new InvalidGrantError('redirect_uri does not match the authorization request');
     // single use: a replayed code revokes everything it ever minted
-    if (!(await mcpRepository.spend(t.id))) { await mcpRepository.revokeGrant(t.grantId!); throw new InvalidGrantError('Authorization code already used'); }
+    if (!(await mcpRepository.spend(t.id))) { await mcpRepository.revokeGrant(t.grantId!).finally(forgetPrincipals); throw new InvalidGrantError('Authorization code already used'); }
     return issue({ userId: t.userId!, clientId: client.client_id, grantId: t.grantId!, scopes: t.scopes, mode: t.mode, resource: t.resource });
   },
 
@@ -234,7 +247,7 @@ export const oauthProvider: OAuthServerProvider = {
     const t = await mcpRepository.tokenByHash(hash(refreshToken));
     if (!t || t.kind !== 'refresh' || t.clientId !== client.client_id) throw new InvalidGrantError('Invalid refresh token');
     // rotation with reuse detection: an old refresh token coming back means it leaked
-    if (!live(t) || !(await mcpRepository.spend(t.id))) { if (t.grantId) await mcpRepository.revokeGrant(t.grantId); throw new InvalidGrantError('Refresh token already used or revoked'); }
+    if (!live(t) || !(await mcpRepository.spend(t.id))) { if (t.grantId) await mcpRepository.revokeGrant(t.grantId).finally(forgetPrincipals); throw new InvalidGrantError('Refresh token already used or revoked'); }
     const narrowed = scopes?.length ? t.scopes.filter((s) => scopes.includes(s)) : t.scopes;
     return issue({ userId: t.userId!, clientId: client.client_id, grantId: t.grantId!, scopes: narrowed, mode: t.mode, resource: t.resource });
   },
@@ -247,6 +260,6 @@ export const oauthProvider: OAuthServerProvider = {
 
   async revokeToken(client, request: OAuthTokenRevocationRequest) {
     const t = await mcpRepository.tokenByHash(hash(request.token));
-    if (t && t.clientId === client.client_id && t.grantId) await mcpRepository.revokeGrant(t.grantId);
+    if (t && t.clientId === client.client_id && t.grantId) await mcpRepository.revokeGrant(t.grantId).finally(forgetPrincipals);
   },
 };

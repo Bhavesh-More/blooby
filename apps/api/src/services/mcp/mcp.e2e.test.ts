@@ -207,7 +207,7 @@ it('runs a whole agent workflow through MCP alone', async () => {
   expect(tools).toEqual(expect.arrayContaining(['project_create', 'add_keyframe', 'render_frame', 'invoke', 'export_start', 'preset_save']));
   expect(c.getInstructions()).toContain('guide_get');
   // the ceilings are told at connect, not discovered by being refused
-  expect(c.getInstructions()).toMatch(/300 renders|6000 calls/);
+  expect(c.getInstructions()).toMatch(/300 renders|300 calls/);
   expect(c.getInstructions()).toContain('batch_execute');
 
   // 2. create a project
@@ -502,3 +502,17 @@ it('keeps the open project across connections, and answers discovery before one 
   await third.close();
   await closed.close();
 }, 30_000);
+
+it('a flood from one token is refused before it reaches the database', async () => {
+  const { mcpRepository } = await import('../../repositories/mcp.repository.js');
+  const lookups = vi.spyOn(mcpRepository, 'tokenByHash');
+  const hit = () => fetch(`${base}/mcp`, { method: 'POST', headers: { Authorization: 'Bearer blb_flood', 'content-type': 'application/json' }, body: '{}' }).then((r) => r.status);
+  const statuses = [];
+  for (let i = 0; i < 610; i++) statuses.push(await hit());
+  expect(statuses.filter((s) => s === 429)).toHaveLength(10);
+  expect(lookups).toHaveBeenCalledTimes(600);
+  // a different token is untouched by it
+  const other = await fetch(`${base}/mcp`, { method: 'POST', headers: { Authorization: 'Bearer blb_other', 'content-type': 'application/json' }, body: '{}' });
+  expect(other.status).toBe(401);
+  lookups.mockRestore();
+});
