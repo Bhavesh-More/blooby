@@ -48,6 +48,11 @@ const CAP = 9;
 /** a limb's points, in order: hip/shoulder, knee/elbow when it has one, then ankle/hand */
 export const limbPoints = (l: LimbRig): ('a' | 'b' | 'c')[] => (l.c ? ['a', 'b', 'c'] : ['a', 'b']);
 
+/** The pin stored for point `k` — the end point's is `limb.pin`, any other's `limb.pins[k]`. */
+export const storedPin = (l: LimbRig, k: 'a' | 'b' | 'c') => (k === limbPoints(l).at(-1) ? l.pin : l.pins?.[k]);
+/** The pin that HOLDS point `k` now: stored and not let go (`pinOff`, keyed as `limb.pin.<k>.on`). */
+export const heldPin = (l: LimbRig, k: 'a' | 'b' | 'c') => (l.pinOff?.[k] ? undefined : storedPin(l, k));
+
 const add = (a: Vec2, b: Vec2): Vec2 => ({ x: a.x + b.x, y: a.y + b.y });
 const sub = (a: Vec2, b: Vec2): Vec2 => ({ x: a.x - b.x, y: a.y - b.y });
 const mul = (a: Vec2, k: number): Vec2 => ({ x: a.x * k, y: a.y * k });

@@ -40,13 +40,18 @@ export const RELEASES: Release[] = [
   {
     version: '2026.09.27.2',
     date: '27 September 2026',
-    title: 'Copy and paste mascots',
+    title: 'Copy and paste mascots, keyframed pins',
     items: [
       {
         id: 'copy-paste-layers', surface: 'editor',
         title: 'Copy a mascot or a layer into another project',
         body: 'Select a mascot, a part or any layer and press ⌘C (Ctrl+C), then ⌘V (Ctrl+V) — in this state, another state, or another project open in any tab. It arrives as a new mascot or a new layer with its keyframes, effects and, for a mascot, its own lane of clips. A part like a hat lands on the mascot you have selected.',
         tour: [step('layer-duplicate', 'Copy, then paste anywhere', '⌘C copies what is selected — ⌘V pastes it here or in another project.')],
+      },
+      {
+        id: 'pin-keyframes', surface: 'editor',
+        title: 'Pin and unpin a limb over time',
+        body: 'A pinned hand or foot now has a Held switch you can keyframe: key it on to plant a foot for a step, off to let it follow the body again. Select a limb, open Points in the inspector, and click the diamond beside Held. Once it has keys, the pin buttons on the stage add a key at the playhead instead of removing the pin.',
       },
     ],
   },

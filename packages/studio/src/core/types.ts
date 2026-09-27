@@ -140,6 +140,12 @@ export interface LimbRig {
   pin?: Vec2;
   /** any other point held in WORLD px — a hip or a knee that stays where it was put */
   pins?: Partial<Record<'a' | 'b' | 'c', Vec2>>;
+  /**
+   * Pins kept but let go: the point follows the body while its pin stays stored, so it can be
+   * held again later. Keyed as `limb.pin.<k>.on` (a switch), which is how a foot plants for a
+   * step and lifts for the next. Absent = every stored pin holds, as before this existed.
+   */
+  pinOff?: Partial<Record<'a' | 'b' | 'c', boolean>>;
 }
 
 export interface RigNode {

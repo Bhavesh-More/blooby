@@ -6,7 +6,7 @@ import { restLength } from './limb';
 import { screenToSurface } from './curvature';
 import { getProp, setProp } from './props';
 import { activeTrackFor, appearanceSpans, buildScene, evaluateRig, fromFrame, pinned, toFrame, WORLD, type LayerFrame } from './scene';
-import { hoseInputOf } from './limb';
+import { hoseInputOf, storedPin } from './limb';
 import { activeTimeline, emptyRig } from './types';
 import { MORPH_MODES, type MorphMode } from './easing';
 import { blockStarts, relayoutBlocks } from './timeline';
@@ -810,6 +810,13 @@ export function pinLimb(p: Project, id: string, on: boolean, atMs: number): bool
 export function pinLimbPoint(p: Project, id: string, key: 'a' | 'b' | 'c', on: boolean, atMs: number): boolean {
   const node = p.rig.nodes[id];
   if (!node?.limb || (key === 'c' && !node.limb.c)) return false;
+  // once the switch is keyed, pinning is animated: a key at the playhead, the pin stays stored
+  const onPath = `limb.pin.${key}.on`;
+  if (storedPin(node.limb, key) && activeTimeline(p).tracks.some((t) => t.nodeId === id && t.property === onPath)) {
+    writeValue(p, id, onPath, on ? 1 : 0, atMs);
+    return true;
+  }
+  const letGo = () => { if (node.limb!.pinOff) { delete node.limb!.pinOff[key]; if (!Object.keys(node.limb!.pinOff).length) delete node.limb!.pinOff; } };
   const frames = new Map<string, LayerFrame>();
   const ev = evaluateRig(p, atMs);
   buildScene(ev, compOf(p), frames);
@@ -824,9 +831,11 @@ export function pinLimbPoint(p: Project, id: string, key: 'a' | 'b' | 'c', on: b
     const at = { x: r2(w.x), y: r2(w.y) };
     if (isEnd) node.limb.pin = at;
     else node.limb.pins = { ...node.limb.pins, [key]: at };
+    letGo();
     return true;
   }
   const had = isEnd ? node.limb.pin : node.limb.pins?.[key];
+  letGo();
   if (!had) return true;
   // write the whole pinned pose back, so the points this pin was carrying do not jump either
   keys.forEach((k, n) => {

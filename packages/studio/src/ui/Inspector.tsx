@@ -704,8 +704,11 @@ function LimbSection({ node }: { node: RigNode }) {
               <button className="btn ghost sm icon" aria-pressed={on} title={on ? `Unpin the ${name.toLowerCase()}` : `Pin the ${name.toLowerCase()} in the world — it stays while the body moves; the limb stretches to reach it`}
                 onClick={() => pinLimbPoint(node.id, k, !on)}><Icon name="pin" size={13} /></button>
             </div>,
-            // pinned, the point is where its pin is — so the pin is what gets keyed
+            // pinned, the point is where its pin is — so the pin is what gets keyed, and whether
+            // it holds is a switch of its own, keyed to plant a foot for a step and lift it
             ...(on ? [
+              <OnOff key={`${k}pon`} nodeId={node.id} property={`limb.pin.${k}.on`} label="Held"
+                on={(valueAt(project, node.id, `limb.pin.${k}.on`, playhead) as number) >= 0.5} />,
               <PropRow key={`${k}px`} nodeId={node.id} property={`limb.pin.${k}.x`} label="Pin X" />,
               <PropRow key={`${k}py`} nodeId={node.id} property={`limb.pin.${k}.y`} label="Pin Y" />,
             ] : [

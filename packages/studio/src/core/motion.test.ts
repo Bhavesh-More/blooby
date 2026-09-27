@@ -293,6 +293,24 @@ const html = (p: Project, t = 0) => renderToStaticMarkup(createElement('svg', nu
   const before = item(p, leg.id)!;
   it('unpinning writes the pose back without a jump', check(pinLimbPoint(p, leg.id, 'a', false, 0) && !p.rig.nodes[leg.id].limb!.pins && near(item(p, leg.id)!.cy, before.cy, 1)));
   it('a knee can be pinned too, and the ankle', check(pinLimbPoint(p, leg.id, 'b', true, 0) && pinLimbPoint(p, leg.id, 'c', true, 0) && !!p.rig.nodes[leg.id].limb!.pins?.b && !!p.rig.nodes[leg.id].limb!.pin));
+
+  // "Held" is keyframable: the ankle's pin holds until 500ms, then lets the foot follow the body
+  pinLimbPoint(p, leg.id, 'b', false, 0);
+  p.rig.nodes.body.surface.flatOffset = { x: 60, y: -30 };
+  const l = p.rig.nodes[leg.id].limb!;
+  const shape = (at: number) => { const s = item(p, leg.id, at)!; return `${s.cx.toFixed(1)},${s.cy.toFixed(1)},${s.h.toFixed(1)}`; };
+  const held = shape(0);
+  l.pinOff = { c: true };
+  const free = shape(0);
+  delete l.pinOff;
+  it('letting a pin go changes where the foot is', check(held !== free, `${held} ${free}`));
+  activeTimeline(p).tracks.push({ id: 'ton', nodeId: leg.id, property: 'limb.pin.c.on', keyframes: [
+    { id: 'o1', time: 0, value: 1, easingOut: { type: 'linear' } }, { id: 'o2', time: 500, value: 0, easingOut: { type: 'linear' } }] });
+  it('keyed on, the foot is held', check(shape(100) === held, shape(100)));
+  it('keyed off, it follows the body — a switch at the key, no halfway', check(shape(499) === held && shape(600) === free, `${shape(499)} ${shape(600)}`));
+  it('the inspector reads the switch at the playhead', check(valueAt(p, leg.id, 'limb.pin.c.on', 100) === 1 && valueAt(p, leg.id, 'limb.pin.c.on', 600) === 0));
+  it('with the switch keyed, the pin toggle writes a key and keeps the pin', check(pinLimbPoint(p, leg.id, 'c', true, 800) && !!l.pin
+    && activeTimeline(p).tracks.find((t) => t.id === 'ton')!.keyframes.some((k) => k.time === 800 && k.value === 1) && shape(800) === held, shape(800)));
 }
 
 // --- undo, and a project round-trips through JSON --------------------------------------------

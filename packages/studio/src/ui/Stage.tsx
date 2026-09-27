@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { HexColorPicker } from './ColorPicker';
 import { useEditor, type Tool } from '../core/store';
 import { compOf } from '../core/comp';
-import { composeScene, evaluateRig, evaluateWithTransition, fromFrame, pinned, sceneFrames, stretchOf, toFrame, WORLD, type LayerFrame, type SceneItem } from '../core/scene';
+import { composeScene, evaluateRig, evaluateWithTransition, fromFrame, pinned, sceneFrames, stretchOf, toFrame, valueAt, WORLD, type LayerFrame, type SceneItem } from '../core/scene';
 import { TrajectoryHandles } from './TrajectoryHandles';
 import { ShapeHandles } from './ShapeHandles';
 import { CurveHandles } from './CurveHandles';
@@ -10,7 +10,7 @@ import { TextPathHandles } from './TextPathHandles';
 import { screenToSurface } from '../core/curvature';
 import { flattenPath, isOpenPath, pathBounds } from '../core/path';
 import { curveToPath, smoothTangents, type CurvePoint } from '../core/curve';
-import { hoseInputOf, limbPoints, rubberHose } from '../core/limb';
+import { heldPin, hoseInputOf, limbPoints, rubberHose } from '../core/limb';
 import { mascotOf } from '../core/mascot';
 import { makeShapeLayer, textName } from '../core/layers';
 import { Shapes } from './Mascot';
@@ -423,7 +423,8 @@ export function Stage() {
       // a planted foot moves its pin: that is where the ground is now
       const l = node.limb;
       const isEnd = !!l && d.key === limbPoints(l)[limbPoints(l).length - 1];
-      if (l && frames.get(WORLD) && (isEnd ? l.pin : l.pins?.[d.key])) {
+      // held at the playhead: a pin the "Held" switch has let go leaves the point to be dragged
+      if (l && frames.get(WORLD) && (isEnd ? l.pin : l.pins?.[d.key]) && (valueAt(useEditor.getState().project, d.id, `limb.pin.${d.key}.on`, useEditor.getState().playhead) as number) >= 0.5) {
         const w = fromFrame(frames.get(WORLD)!, p);
         const at = { x: round2(w.x), y: round2(w.y) };
         // through setValue, so a keyed pin gets a keyframe here like any other drag
@@ -709,14 +710,15 @@ export function Stage() {
         {limbNode?.limb && limbFrame && showGuides && (
           <g className="limb-handles">
             {(() => {
-              const l = limbNode.limb!;
+              // the pins as they are at the playhead: a keyed "Held" switch may have let one go
+              const l = { ...limbNode.limb!, pinOff: Object.fromEntries(limbPoints(limbNode.limb!).map((k) => [k, (valueAt(project, limbNode.id, `limb.pin.${k}.on`, playhead) as number) < 0.5])) };
               // exactly on the points: the length shapes the curve between them, never
               // where they are
               // where each point is drawn — a pinned one at its pin
               const placed = pinned(hoseInputOf(l, (v) => toFrame(limbFrame, v), limbFrame.cum), l, frames.get(WORLD)!).points;
               const keys = limbPoints(l);
               const pts = keys.map((k, i) => ({ k, at: placed[i] }));
-              const isPinned = (k: 'a' | 'b' | 'c') => (k === keys[keys.length - 1] ? !!l.pin : !!l.pins?.[k]);
+              const isPinned = (k: 'a' | 'b' | 'c') => !!heldPin(l, k);
               // where the hose actually ends: short of the hand when it is out of reach,
               // because a rubber hose keeps its length rather than stretching
               const end = rubberHose(pinned(hoseInputOf(l, (v) => toFrame(limbFrame, v), limbFrame.cum), l, frames.get(WORLD)!))?.end;

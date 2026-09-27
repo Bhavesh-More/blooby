@@ -67,6 +67,8 @@ export function getProp(node: RigNode, path: string): KeyValue | undefined {
 
 /** `limb.pin.<a|b|c>.<x|y>` — where a pinned point is held, in world px */
 const PIN_PATH = /^limb\.pin\.([abc])\.([xy])$/;
+/** `limb.pin.<a|b|c>.on` — whether that stored pin holds its point right now (1) or has let it go (0) */
+const PIN_ON = /^limb\.pin\.([abc])\.on$/;
 /** the pin on one point: the end point's is `limb.pin`, the others' are `limb.pins[k]` */
 function pinOf(node: RigNode, which: string): Vec2 | undefined {
   const l = node.limb;
@@ -82,6 +84,8 @@ function getLimbProp(node: RigNode, path: string): number | undefined {
   if (pt) return limbPoint(node, pt[1])?.[pt[2] as 'x' | 'y'];
   const pin = PIN_PATH.exec(path);
   if (pin) return pinOf(node, pin[1])?.[pin[2] as 'x' | 'y'];
+  const held = PIN_ON.exec(path);
+  if (held) return pinOf(node, held[1]) && !l.pinOff?.[held[1] as 'a' | 'b' | 'c'] ? 1 : 0;
   switch (path) {
     case 'limb.hose': return l.hose;
     case 'limb.thickness': return l.thickness;
@@ -110,6 +114,15 @@ function setLimbProp(node: RigNode, path: string, n: number): void {
     // moves a pin, never makes one: pinning stays a choice made with the pin toggle
     const p = pinOf(node, pin[1]);
     if (p) p[pin[2] as 'x' | 'y'] = n;
+    return;
+  }
+  const held = PIN_ON.exec(path);
+  if (held) {
+    // lets a stored pin go or holds it again; with no pin stored there is nothing to switch
+    const k = held[1] as 'a' | 'b' | 'c';
+    if (!pinOf(node, k)) return;
+    if (n >= 0.5) { if (l.pinOff) { delete l.pinOff[k]; if (!Object.keys(l.pinOff).length) delete l.pinOff; } }
+    else l.pinOff = { ...l.pinOff, [k]: true };
     return;
   }
   switch (path) {
@@ -590,6 +603,8 @@ for (const k of ['a', 'b', 'c']) {
     PROPS[`limb.pin.${k}.${axis}`] = { on: 'node', label: `Pin ${axis.toUpperCase()}`, range: [-2000, 2000, 1, 'px'], group: 'pin',
       help: `Limbs only, once point ${k} is pinned: where it is held, world px ${axis === 'x' ? 'right of' : 'down from'} the composition centre. Keyframe it to move the pin.` };
   }
+  PROPS[`limb.pin.${k}.on`] = { on: 'node', label: 'Pinned', range: [0, 1, 1, ''], discrete: true, group: 'pin',
+    help: `Limbs only, once point ${k} is pinned: 1 holds it at its pin, 0 lets it follow the body. A switch at each keyframe — key 1 then 0 to plant a foot for a step and lift it.` };
 }
 const CHAR_RANGE: Record<string, [number, number, number, string]> = {
   x: [-800, 800, 1, 'px'], y: [-800, 800, 1, 'px'], rotation: [-720, 720, 1, '\u00b0'], scale: [0, 5, 0.01, '\u00d7'], opacity: [0, 1, 0.01, ''],
