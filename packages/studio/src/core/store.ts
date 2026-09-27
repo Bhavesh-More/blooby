@@ -6,7 +6,7 @@ import { makeCurveLayer, makeTextLayer, nextName, writeValue } from './layers';
 import { bakeHandles, curveFromPath, curveToPath, type Curve, type CurvePoint } from './curve';
 import { onFonts } from './fonts';
 import {
-  addMascot as addMascotIn, duplicateLayer as duplicateLayerIn, groupLayers as groupLayersIn, removeLayer, reorderLayer as reorderLayerIn,
+  addMascot as addMascotIn, copyLayers as copyLayersIn, pasteLayers as pasteLayersIn, LAYERS_MARK, type LayerClip, duplicateLayer as duplicateLayerIn, groupLayers as groupLayersIn, removeLayer, reorderLayer as reorderLayerIn,
   saveMascotTemplate as saveMascotTemplateIn, applyScaleAsBase as applyScaleAsBaseIn, setRole as setRoleIn, moveInto as moveIntoIn, showLayerIn as showLayerInIn, ownLayer, pinLimb as pinLimbIn, curveToHose as curveToHoseIn, pinLimbPoint as pinLimbPointIn, setFaceRole as setFaceRoleIn,
   setAppearance as setAppearanceIn, setAttachment as setAttachmentIn, setMorph, topZ, ungroupLayer as ungroupLayerIn,
   type AppearanceRange, type AttachMode, type ReorderTo,
@@ -124,6 +124,12 @@ export interface Editor {
    *  there on the timeline, which is what pasting at the playhead means */
   addLayer: (node: RigNode | RigNode[], opts?: { appearAt?: number }) => void;
   duplicateLayer: (id: string) => string | null;
+  /** the layers `ids` (default: the selection) — a mascot with its parts, keys and clips — as
+   *  clipboard text for `pasteLayers`, in this project or another. Changes nothing. */
+  copyLayers: (ids?: string[]) => string;
+  /** clipboard text from `copyLayers` → NEW layers or mascots in this state, keys and clips
+   *  included; a part lands on the same part of the selected mascot. Returns (and selects) the new ids. */
+  pasteLayers: (text: string) => string[];
   reorderLayer: (id: string, to: ReorderTo) => void;
   /** world ↔ mascot, keeping the layer where it is on screen */
   setAttachment: (id: string, mode: AttachMode, anchorId?: string) => void;
@@ -728,6 +734,22 @@ export const useEditor = create<Editor>((set, get) => ({
     let made: string | null = null;
     get().commit((p) => { made = duplicateLayerIn(p, id); });
     if (made) set({ selection: [made] });
+    return made;
+  },
+
+  copyLayers(ids) {
+    const clip = copyLayersIn(get().project, ids ?? get().selection);
+    return clip ? LAYERS_MARK + JSON.stringify(clip) : '';
+  },
+
+  pasteLayers(text) {
+    if (!text.startsWith(LAYERS_MARK)) return [];
+    let clip: LayerClip;
+    try { clip = JSON.parse(text.slice(LAYERS_MARK.length)); } catch { return []; }
+    let made: string[] = [];
+    const onto = get().selection[0];
+    get().commit((p) => { made = pasteLayersIn(p, clip, onto); }, 'paste layers');
+    if (made.length) set({ selection: made, selectedBlockId: null });
     return made;
   },
 

@@ -183,6 +183,11 @@ SceneItem[] ─► ui/Mascot.tsx <Shapes>   stage, thumbs, admin splash, raster 
   (`presetPreviewProject`, `effectPreviewProject`, SquishPreview) or owned layers vanish.
 - Headless visual check: `apps/web/harness.html` exposes `window.__editor` (dev-only).
 - Keyframe copy/paste: `copy`/`paste` events in Timeline.tsx, clipboard text `blooby-keyframes:` + JSON.
+- Layer/mascot copy/paste (also cross-project, via the system clipboard): `layers.copyLayers` → `LayerClip` (nodes, tracks,
+  ranges, modifiers, emitters, a mascot's lane blocks + their presets/svgAssets; anything scoped to a clip left behind is
+  unscoped to timeline time) → text `blooby-layers:` + JSON; `layers.pasteLayers` remaps every id, hangs a part on the same
+  role of the selected mascot. Editor.tsx `copy` (bubble) / `paste` (capture, before keys); Timeline's key copy is capture
+  and only when the timeline was clicked last, so it wins over layers.
 - `valueAt` samples loop-resolved tracks, same as `evaluateRig`.
 
 ## What's New

@@ -307,7 +307,7 @@ export function Layers() {
             <button className="btn ghost sm" title={`Move out of ${rig.nodes[one.parentId]?.name ?? 'its parent'} — it stays where it is on screen`}
               onClick={() => { const up = rig.nodes[one.parentId!]; moveInto(one.id, up?.kind === 'body' ? null : up?.parentId ?? null); }}>Move out</button>
           )}
-          <button className="btn ghost sm icon" title="Duplicate (⌘D)" disabled={!one} onClick={() => one && duplicateLayer(one.id)}><Icon name="copy" /></button>
+          <button className="btn ghost sm icon" data-tour="layer-duplicate" title="Duplicate (⌘D). ⌘C then ⌘V copies layers or a whole mascot — keys and clips too — here or into another project" disabled={!one} onClick={() => one && duplicateLayer(one.id)}><Icon name="copy" /></button>
           <button className="btn ghost sm icon danger-icon" title="Delete (⌫)" disabled={sel.every(isRoot)}
             onClick={() => { for (const n of sel) if (!isRoot(n)) deleteNode(n.id); }}><Icon name="trash" /></button>
         </div>

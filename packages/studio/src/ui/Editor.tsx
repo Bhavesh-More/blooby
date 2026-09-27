@@ -21,7 +21,7 @@ import { compOf } from '../core/comp';
 import { importDotLottie } from '../export/dotlottie';
 import { StateMachine } from './StateMachine';
 import { looksLikeSvg } from '../core/svg';
-import { makeSvgLayer } from '../core/layers';
+import { LAYERS_MARK, makeSvgLayer } from '../core/layers';
 import { activeTimeline } from '../core/types';
 import { startTourWhenReady } from '../kit/tour';
 import { GithubLink, TourMenu } from '../kit/TourMenu';
@@ -126,6 +126,15 @@ export function Editor({ onSave, saveLabel, cloudBar, projectId }: {
       const el = e.target as HTMLElement | null;
       if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
       const text = e.clipboardData?.getData('text/plain') || e.clipboardData?.getData('text/html') || '';
+      // layers or a mascot copied here or in another project — before the timeline's keyframe paste
+      if (text.startsWith(LAYERS_MARK)) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        const made = useEditor.getState().pasteLayers(text);
+        setPasteNote(made.length ? `Pasted ${made.length === 1 ? `"${useEditor.getState().project.rig.nodes[made[0]]?.name}"` : `${made.length} layers`}.` : 'That copy could not be pasted.');
+        setTimeout(() => setPasteNote(null), 4000);
+        return;
+      }
       if (!looksLikeSvg(text)) return;
       const made = makeSvgLayer(text);
       if (!made) return;
@@ -139,6 +148,23 @@ export function Editor({ onSave, saveLabel, cloudBar, projectId }: {
     // capture, so it is decided here before the timeline's keyframe paste sees it
     window.addEventListener('paste', onPaste, true);
     return () => window.removeEventListener('paste', onPaste, true);
+  }, []);
+
+  /** ⌘C with layers selected copies them — a mascot with its parts, keys and clips — as text,
+   *  so ⌘V pastes them here, in another state, or in another project's tab. Keys selected in the
+   *  timeline win (its capture-phase copy runs first and claims the event). */
+  useEffect(() => {
+    const onCopy = (e: ClipboardEvent) => {
+      const el = e.target as HTMLElement | null;
+      if (e.defaultPrevented || (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable))) return;
+      if (window.getSelection()?.toString()) return; // selected words on the page copy as words
+      const text = useEditor.getState().copyLayers();
+      if (!text) return;
+      e.clipboardData?.setData('text/plain', text);
+      e.preventDefault();
+    };
+    window.addEventListener('copy', onCopy);
+    return () => window.removeEventListener('copy', onCopy);
   }, []);
 
   const importProject = async (f: File) => {

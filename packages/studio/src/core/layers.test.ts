@@ -4,8 +4,8 @@ import { defaultProject } from './defaults';
 import { compOf } from './comp';
 import { buildScene, evaluateRig, sceneAt } from './scene';
 import {
-  duplicateLayer, groupLayers, layerOrder, makeShapeLayer, removeLayer, reorderLayer, setAppearance,
-  setAttachment, ungroupLayer,
+  copyLayers, duplicateLayer, groupLayers, pasteLayers, layerOrder, makeShapeLayer, removeLayer, reorderLayer, setAppearance,
+  setAttachment, ungroupLayer, isInside,
 } from './layers';
 import { activeTimeline } from './types';
 import type { Project } from './types';
@@ -189,4 +189,43 @@ const itemOf = (p: Project, id: string, t = 0) => buildScene(evaluateRig(p, t), 
   p.rig.nodes.eyeL.surface.yaw -= 20;
   ungroupLayer(p, g, 0);
   it('ungrouping keeps them on the sphere, where they were', check(p.rig.nodes.eyeL.surface.mapped && near(at('eyeL').cx, l0.cx, 0.01) && near(at('eyeL').cy, l0.cy, 0.01)));
+}
+
+// --- copy / paste: a mascot or a part, into this project or another ----------------
+{
+  const a = defaultProject(), b = defaultProject();
+  const tl = activeTimeline(a);
+  for (const x of [tl, activeTimeline(b)]) { x.blocks = []; x.tracks = []; x.modifiers = []; }
+  tl.blocks = [{ id: 'bk', presetId: 'p_neutral', name: 'Hop', durationMs: 1000 }];
+  tl.tracks.push({ id: 'tb', nodeId: 'eyeL', property: 'transform.rotation', blockId: 'bk', keyframes: [
+    { id: 'k1', time: 0, value: 0, easingOut: { type: 'linear' } }, { id: 'k2', time: 800, value: 40, easingOut: { type: 'linear' } }] });
+  a.rig.nodes.hat = makeShapeLayer('star', { id: 'hat', name: 'Hat', parentId: 'body' });
+  tl.tracks.push({ id: 'th', nodeId: 'hat', property: 'transform.rotation', keyframes: [
+    { id: 'k3', time: 200, value: 10, easingOut: { type: 'linear' } }] });
+
+  // through the clipboard, as text — exactly what a paste in another tab gets
+  const clip = JSON.parse(JSON.stringify(copyLayers(a, ['body', 'eyeL'])));
+  it('a copied mascot carries its parts once, its keys and its clips', check(clip.nodes.length === Object.keys(a.rig.nodes).length && clip.blocks.length === 1 && clip.tracks.length === 2, clip));
+  const [m] = pasteLayers(b, clip);
+  const tb = activeTimeline(b);
+  const eye = Object.values(b.rig.nodes).find((n) => n.role === 'eyeL' && n.id !== 'eyeL' && isInside(b.rig, n.id, m));
+  it('lands as a NEW mascot beside the one there', check(!!m && m !== 'body' && b.rig.nodes[m].kind === 'body' && !!b.rig.nodes.body && b.rig.nodes[m].name === 'Mascot 2', b.rig.nodes[m]?.name));
+  it('with its parts, still playing their roles', check(!!eye && eye.parentId !== null));
+  const lane = tb.blocks.find((x) => x.mascotId === m);
+  it('its clips in its own lane', check(!!lane && tb.blocks.length === 1, JSON.stringify(tb.blocks)));
+  const key = tb.tracks.find((t) => t.nodeId === eye?.id);
+  it('its keys on its own eye, in its own clip, at the same times', check(!!key && key.blockId === lane?.id && key.keyframes[1].time === 800 && key.keyframes[0].id !== 'k1', JSON.stringify(key)));
+  it('and they play', check(near(evaluateRig(b, 800).nodes[eye!.id].transform.rotation, 40, 0.01)));
+  it('the source is untouched', check(Object.keys(a.rig.nodes).length === 5 && tl.tracks.length === 2));
+
+  // a part: onto the same part of whichever mascot is picked
+  const [h] = pasteLayers(b, copyLayers(a, ['hat'])!, m);
+  it('a pasted part hangs on the picked mascot', check(b.rig.nodes[h]?.parentId === m, String(b.rig.nodes[h]?.parentId)));
+  it('with its keys', check(tb.tracks.some((t) => t.nodeId === h && t.keyframes[0].value === 10)));
+  // pasted twice = two, and back into its own project it steps off the original
+  const [h2] = pasteLayers(a, copyLayers(a, ['hat'])!);
+  it('pasted where it came from it is a new layer, nudged off, named apart', check(h2 !== 'hat' && a.rig.nodes[h2].parentId === 'body'
+    && a.rig.nodes[h2].name === 'Hat copy' && (a.rig.nodes[h2].surface.yaw !== a.rig.nodes.hat.surface.yaw || a.rig.nodes[h2].surface.flatOffset?.x !== a.rig.nodes.hat.surface.flatOffset?.x)));
+  it('a clip that is not coming along is unscoped, keeping its moments', check(copyLayers(a, ['eyeL'])!.tracks.every((t) => !t.blockId)));
+  it('garbage pastes nothing', check(pasteLayers(b, {} as never).length === 0));
 }

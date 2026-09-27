@@ -1,11 +1,11 @@
 {
   "capabilityVersion": "1.0.0",
-  "generatedAt": "2026-09-21T13:07:20.142Z",
+  "generatedAt": "2026-09-27T08:15:01.443Z",
   "summary": {
-    "capabilities": 245,
+    "capabilities": 247,
     "byKind": {
       "edit": 82,
-      "action": 101,
+      "action": 103,
       "read": 5,
       "session": 25,
       "server": 32
@@ -3051,6 +3051,43 @@
       "docs": "tools.md#editor_add_svg_asset"
     },
     {
+      "feature": "copyLayers",
+      "id": "editor_copy_layers",
+      "category": "layer",
+      "source": "action",
+      "core": "core/store.ts useEditor().copyLayers",
+      "mcpTool": "editor_copy_layers",
+      "alsoVia": "invoke { capability }",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "ids": {
+            "type": "array",
+            "description": "string[]"
+          },
+          "requestId": {
+            "type": "string",
+            "description": "idempotency key: a retry with the same id returns the first result instead of repeating it"
+          },
+          "dryRun": {
+            "type": "boolean",
+            "description": "report what would change without changing anything"
+          },
+          "expectedRevision": {
+            "type": "number",
+            "description": "refuse with REVISION_CONFLICT unless the project is still at this revision (from editor_get_state or the last result)"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "scope": "project:write",
+      "mutates": true,
+      "reversible": true,
+      "tests": [],
+      "docs": "tools.md#editor_copy_layers"
+    },
+    {
       "feature": "deleteNode",
       "id": "editor_delete_node",
       "category": "layer",
@@ -3217,6 +3254,44 @@
         "packages/studio/src/engine/engine.test.ts"
       ],
       "docs": "tools.md#editor_move_into"
+    },
+    {
+      "feature": "pasteLayers",
+      "id": "editor_paste_layers",
+      "category": "layer",
+      "source": "action",
+      "core": "core/store.ts useEditor().pasteLayers",
+      "mcpTool": "editor_paste_layers",
+      "alsoVia": "invoke { capability }",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string",
+            "description": "idempotency key: a retry with the same id returns the first result instead of repeating it"
+          },
+          "dryRun": {
+            "type": "boolean",
+            "description": "report what would change without changing anything"
+          },
+          "expectedRevision": {
+            "type": "number",
+            "description": "refuse with REVISION_CONFLICT unless the project is still at this revision (from editor_get_state or the last result)"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "additionalProperties": false
+      },
+      "scope": "project:write",
+      "mutates": true,
+      "reversible": true,
+      "tests": [],
+      "docs": "tools.md#editor_paste_layers"
     },
     {
       "feature": "removeSvgAsset",

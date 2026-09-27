@@ -2,7 +2,7 @@
 
 _Generated from the capability registry (version 1.0.0) by `pnpm --filter @blooby/api mcp:docs` — do not edit by hand._
 
-245 capabilities. Every one is callable as its own MCP tool with `?tools=full`, or through `invoke { capability, args }` in the default compact profile. Mutating capabilities also take `requestId` (idempotency), `dryRun` and `expectedRevision`.
+247 capabilities. Every one is callable as its own MCP tool with `?tools=full`, or through `invoke { capability, args }` in the default compact profile. Mutating capabilities also take `requestId` (idempotency), `dryRun` and `expectedRevision`.
 
 ## Scopes
 
@@ -27,7 +27,7 @@ _Generated from the capability registry (version 1.0.0) by `pnpm --filter @bloob
 - [inspector](#category-inspector) (1)
 - [job](#category-job) (4)
 - [keyframe](#category-keyframe) (11)
-- [layer](#category-layer) (26)
+- [layer](#category-layer) (28)
 - [mascot](#category-mascot) (27)
 - [path](#category-path) (9)
 - [playback](#category-playback) (1)
@@ -778,6 +778,15 @@ Keeps an SVG with the project, so it survives a save and an emitter can point at
 
 Arguments: `name` (string) · `markup` (string) · `viewBox` (string)
 
+### editor_copy_layers
+<a id="editor_copy_layers"></a>
+
+**copyLayers** · `project:write` · changes the project, undoable · source: action
+
+the layers `ids` (default: the selection) — a mascot with its parts, keys and clips — as clipboard text for `pasteLayers`, in this project or another. Changes nothing.
+
+Arguments: `ids`? (array)
+
 ### editor_delete_node
 <a id="editor_delete_node"></a>
 
@@ -813,6 +822,15 @@ Arguments: `ids` (array)
 move a layer into another layer (null: the world), keeping it where it is on screen
 
 Arguments: `nodeId` (string) · `parentId` (string,null)
+
+### editor_paste_layers
+<a id="editor_paste_layers"></a>
+
+**pasteLayers** · `project:write` · changes the project, undoable · source: action
+
+clipboard text from `copyLayers` → NEW layers or mascots in this state, keys and clips included; a part lands on the same part of the selected mascot. Returns (and selects) the new ids.
+
+Arguments: `text` (string)
 
 ### editor_remove_svg_asset
 <a id="editor_remove_svg_asset"></a>

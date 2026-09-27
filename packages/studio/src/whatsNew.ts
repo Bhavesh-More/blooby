@@ -38,6 +38,19 @@ const step = (element: string, title: string, description: string): DriveStep =>
 
 export const RELEASES: Release[] = [
   {
+    version: '2026.09.27.2',
+    date: '27 September 2026',
+    title: 'Copy and paste mascots',
+    items: [
+      {
+        id: 'copy-paste-layers', surface: 'editor',
+        title: 'Copy a mascot or a layer into another project',
+        body: 'Select a mascot, a part or any layer and press ⌘C (Ctrl+C), then ⌘V (Ctrl+V) — in this state, another state, or another project open in any tab. It arrives as a new mascot or a new layer with its keyframes, effects and, for a mascot, its own lane of clips. A part like a hat lands on the mascot you have selected.',
+        tour: [step('layer-duplicate', 'Copy, then paste anywhere', '⌘C copies what is selected — ⌘V pastes it here or in another project.')],
+      },
+    ],
+  },
+  {
     version: '2026.09.27',
     date: '27 September 2026',
     title: 'The Sailors mascot',

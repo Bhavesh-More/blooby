@@ -9,11 +9,11 @@ import { activeTrackFor, appearanceSpans, buildScene, evaluateRig, fromFrame, pi
 import { hoseInputOf } from './limb';
 import { activeTimeline, emptyRig } from './types';
 import { MORPH_MODES, type MorphMode } from './easing';
-import { relayoutBlocks } from './timeline';
+import { blockStarts, relayoutBlocks } from './timeline';
 import { faceOf, instantiateTemplate, laneOfMascot, makeMascot, mascotOf, mascotsOf, nextMascotName, partOf, roleOf, type MascotKind } from './mascot';
 import { curveToPath, type CurvePoint } from './curve';
 import { TEXT_DEFAULTS } from './text';
-import type { ColorStop, CurveType, EasingCurve, KeyValue, MascotTemplate, Project, Rig, RigNode, ShapeKind, TextStyle, Vec2 } from './types';
+import type { Appearance, Block, ColorStop, CurveType, EasingCurve, Emitter, KeyValue, MascotTemplate, Modifier, Preset, Project, Rig, RigNode, ShapeKind, SvgAsset, TextStyle, Track, Transition, Vec2 } from './types';
 
 /**
  * Everything you can do TO a layer, as plain functions on a project.
@@ -1057,4 +1057,185 @@ export function showLayerIn(p: Project, id: string, where: 'here' | 'everywhere'
     if (copy.parentId && !rig.nodes[copy.parentId]) copy.parentId = null;
     if (!rig.nodes[rig.rootId]) rig.rootId = Object.values(rig.nodes).find((x) => x.kind === 'body')?.id ?? rig.rootId;
   }
+}
+
+// ---------------------------------------------------------------------------
+// copy / paste: layers and mascots, between states and between projects
+
+/** Prefix of copied layers on the system clipboard, so a paste can tell them from keys, text or an SVG. */
+export const LAYERS_MARK = 'blooby-layers:';
+
+/**
+ * What a copy carries: the layers and everything of the active state that animates them —
+ * keys, ranges, effects, emitters and, for a mascot, its lane of clips (with the presets and
+ * SVGs those name, since the project it lands in may not have them). Times are all on the
+ * timeline's clock: anything scoped to a clip that is NOT coming along is unscoped on copy.
+ */
+export interface LayerClip {
+  v: 1;
+  nodes: RigNode[];
+  /** per copied root: the role of the parent it hung on, so a paste can find the same part elsewhere */
+  parentRoles: Record<string, string>;
+  tracks: Track[];
+  appearances: Appearance[];
+  modifiers: Modifier[];
+  emitters: Emitter[];
+  /** every block here has `mascotId` set to its (source) body id, the first mascot's lane included */
+  blocks: Block[];
+  transitions: Transition[];
+  presets: Preset[];
+  svgAssets: SvgAsset[];
+}
+
+/** The layers `ids` (and everything inside them) of the active state, ready to paste anywhere. */
+export function copyLayers(p: Project, ids: string[]): LayerClip | null {
+  const rig = p.rig;
+  const picked = ids.filter((id) => rig.nodes[id]);
+  // a layer inside another picked one comes with it anyway
+  const roots = picked.filter((id) => !picked.some((o) => o !== id && isInside(rig, id, o)));
+  if (!roots.length) return null;
+  const all = new Set(roots.flatMap((id) => [id, ...descendants(rig, id)]));
+  const tl = activeTimeline(p);
+  const lanes = new Set(roots.filter((id) => rig.nodes[id].kind === 'body').map((id) => laneOfMascot(rig, id)));
+  const starts = blockStarts(tl);
+  const blocks = tl.blocks.filter((b) => lanes.has(b.mascotId ?? ''));
+  const kept = new Set(blocks.map((b) => b.id));
+  const span = (blockId: string) => { const i = tl.blocks.findIndex((b) => b.id === blockId); return { start: starts[i] ?? 0, dur: tl.blocks[i]?.durationMs ?? 0 }; };
+  // scoped to a clip that stays behind → the same moments, on the timeline's clock
+  const unscope = <T extends { blockId?: string; startMs?: number; endMs?: number }>(x: T): T => {
+    if (!x.blockId || kept.has(x.blockId)) return structuredClone(x);
+    const { start, dur } = span(x.blockId);
+    const { blockId: _, ...rest } = structuredClone(x);
+    return { ...rest, startMs: (x.startMs ?? 0) + start, endMs: x.endMs !== undefined ? x.endMs + start : start + dur } as T;
+  };
+  const emitters = (tl.emitters ?? []).filter((e) => e.from.nodeId && all.has(e.from.nodeId)).map(unscope);
+  const assetIds = new Set(emitters.flatMap((e) => [e.svgAssetId, ...(e.parts ?? []).map((x) => x.svgAssetId)]).filter(Boolean));
+  const presetIds = new Set(blocks.map((b) => b.presetId));
+  const parentRoles: Record<string, string> = {};
+  for (const id of roots) {
+    const parent = rig.nodes[id].parentId ? rig.nodes[rig.nodes[id].parentId!] : undefined;
+    const role = parent && roleOf(parent);
+    if (role) parentRoles[id] = role;
+  }
+  return {
+    v: 1,
+    nodes: [...all].map((id) => {
+      const n = structuredClone(rig.nodes[id]);
+      // a legacy id carries its role implicitly; spell it out so the new id keeps it
+      const role = roleOf(rig.nodes[id]);
+      if (role) n.role = role;
+      return n;
+    }),
+    parentRoles,
+    tracks: tl.tracks.filter((t) => all.has(t.nodeId)).map((t) => {
+      const c = structuredClone(t);
+      if (c.blockId && !kept.has(c.blockId)) delete c.blockId; // keyframe times are already absolute
+      return c;
+    }),
+    appearances: (tl.appearances ?? []).filter((a) => all.has(a.nodeId)).map(unscope),
+    modifiers: tl.modifiers.filter((m) => all.has(m.nodeId)).map(unscope),
+    emitters,
+    blocks: blocks.map((b) => ({ ...structuredClone(b), mascotId: b.mascotId ?? rig.rootId })),
+    transitions: (tl.transitions ?? []).filter((x) => kept.has(x.afterBlockId)).map((x) => structuredClone(x)),
+    presets: p.presets.filter((x) => presetIds.has(x.id)).map((x) => structuredClone(x)),
+    svgAssets: (p.svgAssets ?? []).filter((a) => assetIds.has(a.id)).map((a) => structuredClone(a)),
+  };
+}
+
+/**
+ * Put a copy into the active state as NEW layers — fresh ids throughout, so pasting twice
+ * gives two, and the original (in this project or another) is never touched. A mascot
+ * comes with its own lane of clips. A part that hung on a mascot's part (a hat on a body,
+ * a sticker on a face) hangs on the same part of `ontoMascot` — the selected mascot — or
+ * failing that on the node it was on, when this project has it, else the first mascot's.
+ * Pasted back where it came from, it is nudged off the original so it can be seen.
+ * Returns the new top-level ids.
+ */
+export function pasteLayers(p: Project, clip: LayerClip, ontoMascot?: string): string[] {
+  if (clip?.v !== 1 || !clip.nodes?.length) return [];
+  const rig = p.rig;
+  const inClip = new Set(clip.nodes.map((n) => n.id));
+  const roots = clip.nodes.filter((n) => !n.parentId || !inClip.has(n.parentId));
+  const map = new Map(clip.nodes.map((n) => [n.id, uid(n.kind === 'body' ? 'm' : n.kind === 'limb' ? 'limb' : 'n')]));
+  const re = (id: string | undefined) => (id && map.get(id)) || id;
+  const names = new Set(Object.values(rig.nodes).map((n) => n.name));
+  const mascotNames = new Set(mascotsOf(rig).map((m) => m.name));
+  const z = topZ(rig) - Math.min(...clip.nodes.map((n) => n.zIndex));
+  const onto = mascotOf(rig, ontoMascot)?.id ?? (rig.nodes[rig.rootId] ? rig.rootId : undefined);
+  const wasRoot = new Map<string, string>(); // source body id → new id, when it becomes this rig's first mascot
+
+  for (const src of clip.nodes) {
+    const n = structuredClone(src);
+    n.id = map.get(src.id)!;
+    n.zIndex += z;
+    if (n.parentId && inClip.has(n.parentId)) n.parentId = map.get(n.parentId)!;
+    else if (n.parentId) {
+      const role = clip.parentRoles?.[src.id];
+      const byRole = role && onto ? partOf(rig, onto, role) : undefined;
+      // a mascot only ever follows another mascot, never a part of one
+      const ok = (id: string | undefined) => !!id && !!rig.nodes[id] && (n.kind !== 'body' || rig.nodes[id].kind === 'body');
+      n.parentId = ok(byRole) ? byRole! : ok(n.parentId) ? n.parentId : null;
+    }
+    if (n.eye) n.eye.linkedToId = n.eye.linkedToId && (map.get(n.eye.linkedToId) ?? (rig.nodes[n.eye.linkedToId] ? n.eye.linkedToId : null));
+    if (n.mask) { const m = re(n.mask.nodeId)!; if (map.has(n.mask.nodeId) || rig.nodes[m]) n.mask = { ...n.mask, nodeId: m }; else delete n.mask; }
+    if (n.text?.path?.nodeId) {
+      const t = re(n.text.path.nodeId)!;
+      n.text.path = map.has(n.text.path.nodeId) || rig.nodes[t] ? { ...n.text.path, nodeId: t } : { ...n.text.path, mode: 'straight', nodeId: undefined };
+    }
+    if (roots.includes(src)) {
+      const mascot = n.kind === 'body';
+      // back where it came from: step clear of the original, like a duplicate does
+      if (rig.nodes[src.id]) {
+        const step = mascot ? 230 : 16;
+        if (n.limb) for (const pt of [n.limb.a, n.limb.b, n.limb.c]) { if (pt) { pt.x += 16; pt.y += 16; } }
+        else if (n.surface.mapped) n.surface.yaw += 10;
+        else n.surface.flatOffset = { x: (n.surface.flatOffset?.x ?? 0) + step, y: (n.surface.flatOffset?.y ?? 0) + (mascot ? 0 : step) };
+      }
+      if (mascot) { if (mascotNames.has(n.name)) n.name = nextMascotName(rig); mascotNames.add(n.name); }
+      else if (names.has(n.name)) { let k = 2, name = `${src.name} copy`; while (names.has(name)) name = `${src.name} copy ${k++}`; n.name = name; }
+      names.add(n.name);
+    }
+    rig.nodes[n.id] = n;
+  }
+  for (const src of roots) {
+    if (src.kind === 'body' && !rig.nodes[rig.rootId]) { rig.rootId = map.get(src.id)!; wasRoot.set(src.id, rig.rootId); }
+  }
+  denseZ(rig);
+
+  const tl = activeTimeline(p);
+  const bmap = new Map((clip.blocks ?? []).map((b) => [b.id, uid('b')]));
+  const rb = (id: string | undefined) => (id ? bmap.get(id) : undefined);
+  const scoped = <T extends { blockId?: string }>(x: T): T => {
+    const c = { ...structuredClone(x), id: uid('x') } as T;
+    if (x.blockId) c.blockId = rb(x.blockId);
+    if (!c.blockId) delete c.blockId;
+    return c;
+  };
+  for (const t of clip.tracks ?? []) {
+    tl.tracks.push({ ...scoped(t), id: uid('t'), nodeId: map.get(t.nodeId)!, keyframes: t.keyframes.map((k) => ({ ...structuredClone(k), id: uid('k') })) });
+  }
+  for (const a of clip.appearances ?? []) (tl.appearances ??= []).push({ ...scoped(a), id: uid('ap'), nodeId: map.get(a.nodeId)! });
+  for (const m of clip.modifiers ?? []) tl.modifiers.push({ ...scoped(m), id: uid('m'), nodeId: map.get(m.nodeId)! });
+  for (const e of clip.emitters ?? []) {
+    const c = { ...scoped(e), id: uid('e') };
+    c.from = { ...c.from, nodeId: re(c.from.nodeId) };
+    if (c.to.nodeId) c.to = { ...c.to, nodeId: map.has(c.to.nodeId) || rig.nodes[c.to.nodeId] ? re(c.to.nodeId) : undefined };
+    if (c.attract && !map.has(c.attract.nodeId) && !rig.nodes[c.attract.nodeId]) delete c.attract;
+    else if (c.attract) c.attract = { ...c.attract, nodeId: re(c.attract.nodeId)! };
+    (tl.emitters ??= []).push(c);
+  }
+  if (clip.blocks?.length) {
+    const blocks = clip.blocks.map((b) => {
+      const body = b.mascotId ?? '';
+      const c: Block = { ...structuredClone(b), id: bmap.get(b.id)! };
+      if (wasRoot.has(body)) delete c.mascotId; else c.mascotId = map.get(body) ?? body;
+      return c;
+    });
+    for (const x of clip.transitions ?? []) (tl.transitions ??= []).push({ ...structuredClone(x), id: uid('tr'), afterBlockId: bmap.get(x.afterBlockId)! });
+    for (const pr of clip.presets ?? []) if (!p.presets.some((x) => x.id === pr.id)) p.presets.push(structuredClone(pr));
+    // the new lane is empty, so tiled in order its clips start where they did: the keys already line up
+    relayoutBlocks(tl, [...tl.blocks, ...blocks]);
+  }
+  for (const a of clip.svgAssets ?? []) if (!(p.svgAssets ??= []).some((x) => x.id === a.id)) p.svgAssets.push(structuredClone(a));
+  return roots.map((n) => map.get(n.id)!);
 }

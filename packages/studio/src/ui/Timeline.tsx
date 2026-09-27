@@ -376,7 +376,8 @@ export function Timeline({ onOpenEffects }: { onOpenEffects?: () => void } = {})
       } else if (e.key === 'Escape') setSelKeys(new Set());
     };
     const onCopy = (e: ClipboardEvent) => {
-      if (typing(e.target as HTMLElement | null)) return;
+      // keys only when the timeline was the last thing clicked — otherwise ⌘C copies the layers (Editor.tsx)
+      if (typing(e.target as HTMLElement | null) || !inTimeline.current) return;
       if (!copyKeys()) return;
       e.clipboardData?.setData('text/plain', KEYS_MARK + JSON.stringify(clipboard.current));
       e.preventDefault();
@@ -393,11 +394,11 @@ export function Timeline({ onOpenEffects }: { onOpenEffects?: () => void } = {})
     };
     window.addEventListener('keydown', onDelete, true);
     window.addEventListener('keydown', onKey);
-    window.addEventListener('copy', onCopy);
+    window.addEventListener('copy', onCopy, true);
     window.addEventListener('paste', onPaste);
     return () => {
       window.removeEventListener('keydown', onDelete, true); window.removeEventListener('keydown', onKey);
-      window.removeEventListener('copy', onCopy); window.removeEventListener('paste', onPaste);
+      window.removeEventListener('copy', onCopy, true); window.removeEventListener('paste', onPaste);
     };
   });
 
