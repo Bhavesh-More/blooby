@@ -9,8 +9,8 @@ import { activeTrackFor, appearanceSpans, buildScene, evaluateRig, fromFrame, pi
 import { hoseInputOf, storedPin } from './limb';
 import { activeTimeline, emptyRig } from './types';
 import { MORPH_MODES, type MorphMode } from './easing';
-import { blockStarts, relayoutBlocks } from './timeline';
-import { faceOf, instantiateTemplate, laneOfMascot, makeMascot, mascotOf, mascotsOf, nextMascotName, partOf, roleOf, type MascotKind } from './mascot';
+import { blockAt, blockStarts, relayoutBlocks } from './timeline';
+import { faceOf, instantiateTemplate, laneOf, laneOfMascot, makeMascot, mascotOf, mascotsOf, nextMascotName, partOf, roleOf, type MascotKind } from './mascot';
 import { curveToPath, type CurvePoint } from './curve';
 import { TEXT_DEFAULTS } from './text';
 import type { Appearance, Block, ColorStop, CurveType, EasingCurve, Emitter, KeyValue, MascotTemplate, Modifier, Preset, Project, Rig, RigNode, ShapeKind, SvgAsset, TextStyle, Track, Transition, Vec2 } from './types';
@@ -1124,6 +1124,9 @@ export function copyLayers(p: Project, ids: string[]): LayerClip | null {
     return { ...rest, startMs: (x.startMs ?? 0) + start, endMs: x.endMs !== undefined ? x.endMs + start : start + dur } as T;
   };
   const emitters = (tl.emitters ?? []).filter((e) => e.from.nodeId && all.has(e.from.nodeId)).map(unscope);
+  const modifiers = tl.modifiers.filter((m) => all.has(m.nodeId));
+  // an effect's keyframes are tracks keyed by the effect's own id, not the layer's
+  const keyed = new Set([...all, ...modifiers.map((m) => m.id), ...emitters.map((e) => e.id)]);
   const assetIds = new Set(emitters.flatMap((e) => [e.svgAssetId, ...(e.parts ?? []).map((x) => x.svgAssetId)]).filter(Boolean));
   const presetIds = new Set(blocks.map((b) => b.presetId));
   const parentRoles: Record<string, string> = {};
@@ -1142,13 +1145,20 @@ export function copyLayers(p: Project, ids: string[]): LayerClip | null {
       return n;
     }),
     parentRoles,
-    tracks: tl.tracks.filter((t) => all.has(t.nodeId)).map((t) => {
+    tracks: tl.tracks.filter((t) => keyed.has(t.nodeId)).map((t) => {
       const c = structuredClone(t);
-      if (c.blockId && !kept.has(c.blockId)) delete c.blockId; // keyframe times are already absolute
+      if (!c.blockId || kept.has(c.blockId)) return c;
+      // leaving its clip: a key's time is on the clip's clock (it runs at the clip's speed),
+      // so bring it onto the timeline's, where the paste finds the clip it belongs in
+      // ponytail: a looping clip's keys keep their first pass only
+      const { start } = span(c.blockId);
+      const speed = tl.blocks.find((b) => b.id === c.blockId)?.speed ?? 1;
+      for (const k of c.keyframes) k.time = start + (k.time - start) / (speed || 1);
+      delete c.blockId;
       return c;
     }),
     appearances: (tl.appearances ?? []).filter((a) => all.has(a.nodeId)).map(unscope),
-    modifiers: tl.modifiers.filter((m) => all.has(m.nodeId)).map(unscope),
+    modifiers: modifiers.map(unscope),
     emitters,
     blocks: blocks.map((b) => ({ ...structuredClone(b), mascotId: b.mascotId ?? rig.rootId })),
     transitions: (tl.transitions ?? []).filter((x) => kept.has(x.afterBlockId)).map((x) => structuredClone(x)),
@@ -1226,19 +1236,6 @@ export function pasteLayers(p: Project, clip: LayerClip, ontoMascot?: string): s
     if (!c.blockId) delete c.blockId;
     return c;
   };
-  for (const t of clip.tracks ?? []) {
-    tl.tracks.push({ ...scoped(t), id: uid('t'), nodeId: map.get(t.nodeId)!, keyframes: t.keyframes.map((k) => ({ ...structuredClone(k), id: uid('k') })) });
-  }
-  for (const a of clip.appearances ?? []) (tl.appearances ??= []).push({ ...scoped(a), id: uid('ap'), nodeId: map.get(a.nodeId)! });
-  for (const m of clip.modifiers ?? []) tl.modifiers.push({ ...scoped(m), id: uid('m'), nodeId: map.get(m.nodeId)! });
-  for (const e of clip.emitters ?? []) {
-    const c = { ...scoped(e), id: uid('e') };
-    c.from = { ...c.from, nodeId: re(c.from.nodeId) };
-    if (c.to.nodeId) c.to = { ...c.to, nodeId: map.has(c.to.nodeId) || rig.nodes[c.to.nodeId] ? re(c.to.nodeId) : undefined };
-    if (c.attract && !map.has(c.attract.nodeId) && !rig.nodes[c.attract.nodeId]) delete c.attract;
-    else if (c.attract) c.attract = { ...c.attract, nodeId: re(c.attract.nodeId)! };
-    (tl.emitters ??= []).push(c);
-  }
   if (clip.blocks?.length) {
     const blocks = clip.blocks.map((b) => {
       const body = b.mascotId ?? '';
@@ -1250,6 +1247,46 @@ export function pasteLayers(p: Project, clip: LayerClip, ontoMascot?: string): s
     for (const pr of clip.presets ?? []) if (!p.presets.some((x) => x.id === pr.id)) p.presets.push(structuredClone(pr));
     // the new lane is empty, so tiled in order its clips start where they did: the keys already line up
     relayoutBlocks(tl, [...tl.blocks, ...blocks]);
+  }
+  const fx = new Map<string, string>(); // effect id → its copy's, so its keyframe tracks follow it
+  for (const a of clip.appearances ?? []) (tl.appearances ??= []).push({ ...scoped(a), id: uid('ap'), nodeId: map.get(a.nodeId)! });
+  for (const m of clip.modifiers ?? []) {
+    const c = { ...scoped(m), id: uid('m'), nodeId: map.get(m.nodeId)! };
+    fx.set(m.id, c.id);
+    tl.modifiers.push(c);
+  }
+  for (const e of clip.emitters ?? []) {
+    const c = { ...scoped(e), id: uid('e') };
+    fx.set(e.id, c.id);
+    c.from = { ...c.from, nodeId: re(c.from.nodeId) };
+    if (c.to.nodeId) c.to = { ...c.to, nodeId: map.has(c.to.nodeId) || rig.nodes[c.to.nodeId] ? re(c.to.nodeId) : undefined };
+    if (c.attract && !map.has(c.attract.nodeId) && !rig.nodes[c.attract.nodeId]) delete c.attract;
+    else if (c.attract) c.attract = { ...c.attract, nodeId: re(c.attract.nodeId)! };
+    (tl.emitters ??= []).push(c);
+  }
+  // A key with no clip only plays where its layer's lane has none (activeTrackFor), so a key
+  // that left its clip is filed into whichever clip of the new layer's lane it lands in here —
+  // exactly where writing it by hand would put it — onto that clip's clock.
+  const starts = blockStarts(tl);
+  const layerOf = (id: string) => map.get(id) ?? clip.modifiers?.find((m) => m.id === id)?.nodeId ?? clip.emitters?.find((e) => e.id === id)?.from.nodeId;
+  for (const t of clip.tracks ?? []) {
+    const nodeId = map.get(t.nodeId) ?? fx.get(t.nodeId);
+    if (!nodeId) continue;
+    const keys = t.keyframes.map((k) => ({ ...structuredClone(k), id: uid('k') }));
+    if (t.blockId && bmap.has(t.blockId)) { tl.tracks.push({ ...structuredClone(t), id: uid('t'), nodeId, blockId: bmap.get(t.blockId), keyframes: keys }); continue; }
+    const owner = layerOf(t.nodeId);
+    const lane = laneOf(rig, tl, map.get(owner ?? '') ?? owner ?? nodeId);
+    const byClip = new Map<string, typeof keys>();
+    for (const k of keys) {
+      const b = blockAt(tl, k.time, lane);
+      if (b) { const s0 = starts[tl.blocks.indexOf(b)]; k.time = s0 + (k.time - s0) * (b.speed ?? 1); }
+      byClip.set(b?.id ?? '', [...(byClip.get(b?.id ?? '') ?? []), k]);
+    }
+    for (const [blockId, kfs] of byClip) {
+      const c: Track = { ...structuredClone(t), id: uid('t'), nodeId, keyframes: kfs };
+      if (blockId) c.blockId = blockId; else delete c.blockId;
+      tl.tracks.push(c);
+    }
   }
   for (const a of clip.svgAssets ?? []) if (!(p.svgAssets ??= []).some((x) => x.id === a.id)) p.svgAssets.push(structuredClone(a));
   return roots.map((n) => map.get(n.id)!);
