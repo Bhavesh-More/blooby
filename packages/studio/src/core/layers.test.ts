@@ -106,9 +106,30 @@ const itemOf = (p: Project, id: string, t = 0) => buildScene(evaluateRig(p, t), 
 
   p.rig.nodes.hi.ranged = true;
   setAppearance(p, 'hi', null, 0);
-  it('a ranged layer with no range is never there', check(!at(300) && !at(800)));
+  const mine = () => (activeTimeline(p).appearances ?? []).filter((a) => a.nodeId === 'hi');
+  const end = activeTimeline(p).timelineDurationMs;
+  it('Reset puts a ranged layer back for the whole clip, rather than off screen everywhere', check(!!at(0) && !!at(800) && !!at(end - 5)));
+  it('as one open-ended range', check(mine().length === 1 && mine()[0].startMs === undefined && mine()[0].endMs === undefined, JSON.stringify(mine())));
+  activeTimeline(p).appearances = [];
+  it('a ranged layer with no range at all is never there', check(!at(300) && !at(800)));
   p.rig.nodes.hi.ranged = false;
   it('and an unranged one with no range is always there', check(!!at(300) && !!at(1300)));
+
+  // a range dragged to the clip's edges is the whole clip — and stays so when the timeline grows
+  {
+    p.rig.nodes.hi.ranged = true;
+    const tl0 = activeTimeline(p);
+    const len = tl0.timelineDurationMs;
+    setAppearance(p, 'hi', { startMs: 0, endMs: len }, 0);
+    const e = mine()[0];
+    it('a range reaching both ends is stored open-ended', check(e.startMs === undefined && e.endMs === undefined, JSON.stringify(e)));
+    tl0.timelineDurationMs = len + 2000;
+    it('so a longer timeline still shows the layer to its end', check(!!at(len + 1500)));
+    tl0.timelineDurationMs = len;
+    setAppearance(p, 'hi', { startMs: 300, endMs: len }, 0);
+    it('a range starting later keeps its start and stays open at the end', check(mine()[0].startMs === 300 && mine()[0].endMs === undefined, JSON.stringify(mine()[0])));
+    p.rig.nodes.hi.ranged = false;
+  }
 
   // a range that came with a clip stays relative to the clip
   const tl = activeTimeline(p);

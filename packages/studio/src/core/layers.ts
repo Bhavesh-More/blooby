@@ -658,17 +658,35 @@ export function setMorph(p: Project, nodeId: string, atMs: number, mode: MorphMo
 export interface AppearanceRange { startMs?: number; endMs?: number; fadeInMs?: number; fadeOutMs?: number }
 
 /**
+ * A range that reaches its clip's start or end is stored WITHOUT that number, so it stays
+ * "from the start" / "to the end" when the clip or the timeline grows. A range pinned to
+ * 0 → 4121 was the whole clip only until the timeline got longer; then the layer vanished
+ * for the rest of it. `limit` is the scope's length (the clip's, or the timeline's).
+ */
+export function openEnded<T extends { startMs?: number; endMs?: number }>(a: T, limit: number): T {
+  if (a.startMs !== undefined && a.startMs <= 0) delete a.startMs;
+  if (a.endMs !== undefined && a.endMs >= limit - 1) delete a.endMs;
+  return a;
+}
+
+/**
  * Set when a layer is on screen in the active timeline, in ABSOLUTE timeline ms.
  *
  * Edits the range the playhead is in (or the layer's first), converting into that
  * range's own scope — a range that came with a clip stays relative to the clip, so
  * moving the clip still moves the sticker with it. With none, a timeline-wide one is
- * made. `null` removes them all: the layer is simply always there again.
+ * made. A range reaching either end of its scope is kept open there (`openEnded`).
+ *
+ * `null` is Reset: back to the whole clip. It removes the ranges (or the one named), and a
+ * layer that exists only inside its ranges (`ranged`) is given one whole-timeline range in
+ * their place — with none left it would be on screen nowhere, which looked like the reset
+ * had deleted it. A layer that is not ranged is simply always there again.
  */
 export function setAppearance(p: Project, nodeId: string, range: AppearanceRange | null, atMs: number, entryId?: string): void {
   const tl = activeTimeline(p);
   if (range === null) {
-    if (tl.appearances) tl.appearances = tl.appearances.filter((a) => a.nodeId !== nodeId || (entryId !== undefined && a.id !== entryId));
+    tl.appearances = (tl.appearances ?? []).filter((a) => a.nodeId !== nodeId || (entryId !== undefined && a.id !== entryId));
+    if (p.rig.nodes[nodeId]?.ranged && !tl.appearances.some((a) => a.nodeId === nodeId)) tl.appearances.push({ id: uid('ap'), nodeId });
     return;
   }
   const spans = appearanceSpans(tl, nodeId);
@@ -683,6 +701,8 @@ export function setAppearance(p: Project, nodeId: string, range: AppearanceRange
   if (entry.startMs !== undefined && entry.endMs !== undefined && entry.endMs < entry.startMs + 20) entry.endMs = entry.startMs + 20;
   if ('fadeInMs' in range) entry.fadeInMs = range.fadeInMs === undefined ? undefined : Math.max(0, Math.round(range.fadeInMs));
   if ('fadeOutMs' in range) entry.fadeOutMs = range.fadeOutMs === undefined ? undefined : Math.max(0, Math.round(range.fadeOutMs));
+  const blockId = entry.blockId;
+  openEnded(entry, blockId ? (tl.blocks.find((b) => b.id === blockId)?.durationMs ?? Infinity) : tl.timelineDurationMs);
 }
 
 // ---------------------------------------------------------------------------

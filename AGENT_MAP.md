@@ -72,6 +72,8 @@ SceneItem[] ─► ui/Mascot.tsx <Shapes>   stage, thumbs, admin splash, raster 
 - Layer ops in layers.ts touch only the active timeline's tracks; `showLayerIn(...,'everywhere')` copies
   the layer into every other timeline's rig.
 - Visibility per timeline: `appearanceAt(tl,node,t)` — no entry → visible unless `node.ranged`.
+  A range touching its scope's start/end is stored WITHOUT that number (`layers.openEnded`) so it follows the clip/timeline
+  length; `setAppearance(null)` = Reset → a ranged layer gets one open whole-timeline range (never zero, which hides it).
 - `core/layers.ts` = every layer op (store + copilot both call it). `removeLayer` cleans
   tracks/appearances/links in the active timeline (the others have their own layers).
 - NEW layers are owned by the active state: `ownLayer()` (store.addLayer + copilot add_*)

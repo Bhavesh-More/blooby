@@ -9,6 +9,7 @@ import { sailorsPresets } from './sailorsPresets';
 import { slug } from './stateMachine';
 import { ensureFaces } from './mascot';
 import { unpackPresets } from './presetRefs';
+import { openEnded } from './layers';
 import type { Block, Modifier, Project, Track } from './types';
 
 /**
@@ -32,7 +33,7 @@ import type { Block, Modifier, Project, Track } from './types';
  */
 
 /** Bump this with every new entry in MIGRATIONS. `defaultProject()` stamps it. */
-export const SCHEMA_VERSION = 15;
+export const SCHEMA_VERSION = 16;
 
 interface Migration {
   /** the version this step produces */
@@ -331,6 +332,25 @@ const MIGRATIONS: Migration[] = [
       const have = new Set(p.presets.map((x) => x?.id));
       const last = Math.max(-1, ...creativePresets().map((t) => p.presets.findIndex((x) => x?.id === t.id)));
       p.presets.splice(last + 1 || p.presets.length, 0, ...sailorsPresets().filter((x) => !have.has(x.id)));
+    },
+  },
+  {
+    to: 16,
+    label: 'whole-clip ranges stay whole',
+    /**
+     * A layer's on-screen range that reached its clip's end was stored as a number (0 → 4121),
+     * so it stopped being the whole clip the moment the timeline grew. Such ranges become
+     * open-ended (core/layers.ts `openEnded`) — identical today, and still whole tomorrow.
+     */
+    run(p) {
+      for (const tl of Array.isArray(p.timelines) ? p.timelines : []) {
+        for (const a of Array.isArray(tl?.appearances) ? tl.appearances : []) {
+          if (!a) continue;
+          const block = a.blockId ? (Array.isArray(tl.blocks) ? tl.blocks : []).find((b) => b?.id === a.blockId) : undefined;
+          const limit = a.blockId ? block?.durationMs : tl.timelineDurationMs;
+          if (typeof limit === 'number' && Number.isFinite(limit)) openEnded(a, limit);
+        }
+      }
     },
   },
 ];

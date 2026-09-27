@@ -1,4 +1,5 @@
 import { addPresetLayers, defaultProject, defaultRig } from './defaults';
+import { openEnded } from './layers';
 import { art, HI_BUBBLE, limb } from './showcase';
 import { uid } from './id';
 import { ANY_STATE } from './types';
@@ -1229,7 +1230,7 @@ export function sailorsProject(spec: SailorsProjectSpec, library: Preset[] = [..
     return {
       id: uid('tl'), name, rig, tracks: structuredClone(preset.tracks), modifiers: [], blocks: [],
       emitters: (preset.emitters ?? []).map((e) => ({ ...structuredClone(e), id: uid('e') })),
-      appearances: (preset.appearances ?? []).map((a) => ({ ...a, id: uid('ap') })),
+      appearances: (preset.appearances ?? []).map((a) => openEnded({ ...a, id: uid('ap') }, preset.durationMs)),
       durationMode: 'custom', timelineDurationMs: preset.durationMs, durationOverrideMs: preset.durationMs, loop: true,
     };
   });

@@ -12,6 +12,7 @@ import { appPresets } from './appPresets';
 import { cinematicPresets } from './cinematicPresets';
 import { creativePresets } from './creativePresets';
 import { quietEffect } from './effects';
+import { openEnded } from './layers';
 import { mascotKitPresets } from './mascotKit';
 import { sailorsPresets } from './sailorsPresets';
 import { BONE, faceOf, INK, makeBody, makeEye, makeFace, retargetId, roleOf } from './mascot';
@@ -519,7 +520,8 @@ export function attachPresetEffects(timeline: Timeline, preset: Preset, blockId:
     const nodeId = to(a.nodeId);
     const n = rig?.nodes[nodeId];
     if (n && !n.ranged) continue;
-    (timeline.appearances ??= []).push({ ...a, nodeId, id: uid('ap'), blockId });
+    // the clip's length now; open-ended, it is still the whole clip after a resize or a loop
+    (timeline.appearances ??= []).push(openEnded({ ...a, nodeId, id: uid('ap'), blockId }, preset.durationMs));
   }
 }
 
