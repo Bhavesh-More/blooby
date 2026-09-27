@@ -44,8 +44,9 @@ SceneItem[] ─► ui/Mascot.tsx <Shapes>   stage, thumbs, admin splash, raster 
   particles draw as dots; `emitterFrame` unit ignores a mascot scaled below 0.1.
 - Text `charOffsets` (props `text.char.<i>.*`, `group` rows kept out of PROP_ALIAS), `charOrient`.
 - Limb pins: `limb.pin` (end) + `limb.pins[a|b|c]` world px; `pinned()` stretches length to reach.
-  Held/let go = `limb.pinOff[k]`, keyed as discrete `limb.pin.<k>.on`; read through `heldPin()` (limb.ts), never `l.pin` directly.
-  `pinLimbPoint` writes an `on` key instead of deleting once that track exists.
+  How held = `limb.pinOff[k]` (0..1 let go; legacy `true` = 1), keyed as the weight `limb.pin.<k>.on`; `pinned()` lerps each
+  point toward its pin by `pinWeight()` (limb.ts) — never read `l.pin` directly. Once that track exists, `pinLimbPoint`
+  writes a PIN_BLEND_MS ramp instead of deleting the pin.
 - Presets: `core/cinematicPresets.ts` (`settled` = open on rest + looped; `sequence()` joins
   presets). Negative preset-layer zIndex → behind the rig (`addPresetLayers`). Migration 9.
 

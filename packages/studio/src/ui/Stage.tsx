@@ -710,8 +710,8 @@ export function Stage() {
         {limbNode?.limb && limbFrame && showGuides && (
           <g className="limb-handles">
             {(() => {
-              // the pins as they are at the playhead: a keyed "Held" switch may have let one go
-              const l = { ...limbNode.limb!, pinOff: Object.fromEntries(limbPoints(limbNode.limb!).map((k) => [k, (valueAt(project, limbNode.id, `limb.pin.${k}.on`, playhead) as number) < 0.5])) };
+              // the pins as they are at the playhead: a keyed Held may be easing one on or off
+              const l = { ...limbNode.limb!, pinOff: Object.fromEntries(limbPoints(limbNode.limb!).map((k) => [k, 1 - (valueAt(project, limbNode.id, `limb.pin.${k}.on`, playhead) as number)])) };
               // exactly on the points: the length shapes the curve between them, never
               // where they are
               // where each point is drawn — a pinned one at its pin

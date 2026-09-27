@@ -50,8 +50,11 @@ export const limbPoints = (l: LimbRig): ('a' | 'b' | 'c')[] => (l.c ? ['a', 'b',
 
 /** The pin stored for point `k` — the end point's is `limb.pin`, any other's `limb.pins[k]`. */
 export const storedPin = (l: LimbRig, k: 'a' | 'b' | 'c') => (k === limbPoints(l).at(-1) ? l.pin : l.pins?.[k]);
-/** The pin that HOLDS point `k` now: stored and not let go (`pinOff`, keyed as `limb.pin.<k>.on`). */
-export const heldPin = (l: LimbRig, k: 'a' | 'b' | 'c') => (l.pinOff?.[k] ? undefined : storedPin(l, k));
+/** How strongly point `k` is held by its pin, 0..1 — 0 with no pin stored (`limb.pin.<k>.on`). */
+export const pinWeight = (l: LimbRig, k: 'a' | 'b' | 'c'): number =>
+  storedPin(l, k) ? Math.min(1, Math.max(0, 1 - Number(l.pinOff?.[k] ?? 0))) : 0;
+/** The pin that has hold of point `k` now — stored and held at least halfway — for handles and toggles. */
+export const heldPin = (l: LimbRig, k: 'a' | 'b' | 'c') => (pinWeight(l, k) >= 0.5 ? storedPin(l, k) : undefined);
 
 const add = (a: Vec2, b: Vec2): Vec2 => ({ x: a.x + b.x, y: a.y + b.y });
 const sub = (a: Vec2, b: Vec2): Vec2 => ({ x: a.x - b.x, y: a.y - b.y });

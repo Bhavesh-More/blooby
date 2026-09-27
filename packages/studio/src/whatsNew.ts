@@ -51,7 +51,7 @@ export const RELEASES: Release[] = [
       {
         id: 'pin-keyframes', surface: 'editor',
         title: 'Pin and unpin a limb over time',
-        body: 'A pinned hand or foot now has a Held switch you can keyframe: key it on to plant a foot for a step, off to let it follow the body again. Select a limb, open Points in the inspector, and click the diamond beside Held. Once it has keys, the pin buttons on the stage add a key at the playhead instead of removing the pin.',
+        body: 'A pinned hand or foot now has a Held slider you can keyframe: 1 plants it, 0 lets it follow the body, and in between it eases from one to the other — no snap. Select a limb, open Points in the inspector, and click the diamond beside Held. Once it has keys, the pin buttons on the stage ease the pin on or off over a fifth of a second from the playhead instead of removing it.',
       },
     ],
   },

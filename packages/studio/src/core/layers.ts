@@ -5,7 +5,7 @@ import { importSvg, parseSvg } from './svg';
 import { restLength } from './limb';
 import { screenToSurface } from './curvature';
 import { getProp, setProp } from './props';
-import { activeTrackFor, appearanceSpans, buildScene, evaluateRig, fromFrame, pinned, toFrame, WORLD, type LayerFrame } from './scene';
+import { activeTrackFor, appearanceSpans, buildScene, evaluateRig, fromFrame, pinned, toFrame, valueAt, WORLD, type LayerFrame } from './scene';
 import { hoseInputOf, storedPin } from './limb';
 import { activeTimeline, emptyRig } from './types';
 import { MORPH_MODES, type MorphMode } from './easing';
@@ -798,6 +798,9 @@ export function pinLimb(p: Project, id: string, on: boolean, atMs: number): bool
   return pinLimbPoint(p, id, l.c ? 'c' : 'b', on, atMs);
 }
 
+/** How long a keyed pin takes to take hold of its point, or to let it go. */
+export const PIN_BLEND_MS = 200;
+
 /**
  * Pin one point of a limb — a hip, a knee, a foot — where it is now in the WORLD (`on`), or
  * lift it (`on` false).
@@ -810,10 +813,13 @@ export function pinLimb(p: Project, id: string, on: boolean, atMs: number): bool
 export function pinLimbPoint(p: Project, id: string, key: 'a' | 'b' | 'c', on: boolean, atMs: number): boolean {
   const node = p.rig.nodes[id];
   if (!node?.limb || (key === 'c' && !node.limb.c)) return false;
-  // once the switch is keyed, pinning is animated: a key at the playhead, the pin stays stored
+  // once Held is keyed, pinning is animated: from how held it is at the playhead to fully on
+  // (or off) PIN_BLEND_MS later, so the point eases onto its pin or off it. The pin stays stored.
   const onPath = `limb.pin.${key}.on`;
   if (storedPin(node.limb, key) && activeTimeline(p).tracks.some((t) => t.nodeId === id && t.property === onPath)) {
-    writeValue(p, id, onPath, on ? 1 : 0, atMs);
+    const now = valueAt(p, id, onPath, atMs);
+    writeValue(p, id, onPath, typeof now === 'number' ? now : on ? 0 : 1, atMs);
+    writeValue(p, id, onPath, on ? 1 : 0, atMs + PIN_BLEND_MS);
     return true;
   }
   const letGo = () => { if (node.limb!.pinOff) { delete node.limb!.pinOff[key]; if (!Object.keys(node.limb!.pinOff).length) delete node.limb!.pinOff; } };

@@ -1,7 +1,7 @@
 import { EFFECTS } from './effects';
 import type { ColorStop, Emitter, KeyValue, Modifier, Rig, RigNode, Timeline, Vec2 } from './types';
 import { CAMERA_ID } from './types';
-import { limbPoints } from './limb';
+import { limbPoints, pinWeight } from './limb';
 
 /** What a stroke is drawn in before anyone picks a colour — the eyes' own ink. */
 export const STROKE_DEFAULT: ColorStop = { r: 20, g: 19, b: 24, a: 1 };
@@ -85,7 +85,7 @@ function getLimbProp(node: RigNode, path: string): number | undefined {
   const pin = PIN_PATH.exec(path);
   if (pin) return pinOf(node, pin[1])?.[pin[2] as 'x' | 'y'];
   const held = PIN_ON.exec(path);
-  if (held) return pinOf(node, held[1]) && !l.pinOff?.[held[1] as 'a' | 'b' | 'c'] ? 1 : 0;
+  if (held) return pinWeight(l, held[1] as 'a' | 'b' | 'c');
   switch (path) {
     case 'limb.hose': return l.hose;
     case 'limb.thickness': return l.thickness;
@@ -121,8 +121,9 @@ function setLimbProp(node: RigNode, path: string, n: number): void {
     // lets a stored pin go or holds it again; with no pin stored there is nothing to switch
     const k = held[1] as 'a' | 'b' | 'c';
     if (!pinOf(node, k)) return;
-    if (n >= 0.5) { if (l.pinOff) { delete l.pinOff[k]; if (!Object.keys(l.pinOff).length) delete l.pinOff; } }
-    else l.pinOff = { ...l.pinOff, [k]: true };
+    const off = Math.round((1 - Math.min(1, Math.max(0, n))) * 1000) / 1000;
+    if (off > 0) l.pinOff = { ...l.pinOff, [k]: off };
+    else if (l.pinOff) { delete l.pinOff[k]; if (!Object.keys(l.pinOff).length) delete l.pinOff; }
     return;
   }
   switch (path) {
@@ -603,8 +604,8 @@ for (const k of ['a', 'b', 'c']) {
     PROPS[`limb.pin.${k}.${axis}`] = { on: 'node', label: `Pin ${axis.toUpperCase()}`, range: [-2000, 2000, 1, 'px'], group: 'pin',
       help: `Limbs only, once point ${k} is pinned: where it is held, world px ${axis === 'x' ? 'right of' : 'down from'} the composition centre. Keyframe it to move the pin.` };
   }
-  PROPS[`limb.pin.${k}.on`] = { on: 'node', label: 'Pinned', range: [0, 1, 1, ''], discrete: true, group: 'pin',
-    help: `Limbs only, once point ${k} is pinned: 1 holds it at its pin, 0 lets it follow the body. A switch at each keyframe — key 1 then 0 to plant a foot for a step and lift it.` };
+  PROPS[`limb.pin.${k}.on`] = { on: 'node', label: 'Held', range: [0, 1, 0.01, ''], group: 'pin',
+    help: `Limbs only, once point ${k} is pinned: how strongly its pin holds it. 1 = at the pin, 0 = follows the body, between = blended. Ease 1 → 0 over ~150-250ms to lift a planted foot smoothly.` };
 }
 const CHAR_RANGE: Record<string, [number, number, number, string]> = {
   x: [-800, 800, 1, 'px'], y: [-800, 800, 1, 'px'], rotation: [-720, 720, 1, '\u00b0'], scale: [0, 5, 0.01, '\u00d7'], opacity: [0, 1, 0.01, ''],

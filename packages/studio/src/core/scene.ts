@@ -6,7 +6,7 @@ import { shapeResolver } from './emitters';
 import { noise1d } from './noise';
 import { blobOf } from './blob';
 import { bodyTurnScale, FLAT, projectToScreen, silhouetteScale, type Projected } from './curvature';
-import { heldPin, hoseInputOf, limbPoints as limbPointKeys, rubberHose, type HoseInput } from './limb';
+import { hoseInputOf, pinWeight, storedPin, limbPoints as limbPointKeys, rubberHose, type HoseInput } from './limb';
 import { CAMERA_PROPS, getCameraProp, getProp, isEffectProp, NUMERIC_PROPS, PROPS, readEffectProp, readProp, setCameraProp, setProp, STROKE_DEFAULT, writeEffectProp, writeProp } from './props';
 import { arcSampler, glyphBounds, placeGlyphs, TEXT_DEFAULTS, type Glyph } from './text';
 import { metricsFor, snapWeight } from './fonts';
@@ -1015,14 +1015,15 @@ const roleOfFace = (n: RigNode) => n.role === 'face';
 export function pinned(input: HoseInput, l: LimbRig, world: LayerFrame): HoseInput {
   const pts = input.points;
   const keys = limbPointKeys(l);
-  const endPin = heldPin(l, keys[keys.length - 1]);
-  const own = (k: 'a' | 'b' | 'c') => (k === keys[keys.length - 1] ? undefined : heldPin(l, k));
-  const some = !!endPin || keys.some(own);
-  if (!some || pts.length < 2) return input;
+  // each pin pulls its point by its weight: a pin easing on or off blends, it never snaps
+  const endKey = keys[keys.length - 1], endW = pinWeight(l, endKey);
+  const own = (k: 'a' | 'b' | 'c') => (k === endKey ? 0 : pinWeight(l, k));
+  if ((!endW && !keys.some(own)) || pts.length < 2) return input;
+  const lerp = (q: Vec2, at: Vec2, w: number) => (w >= 1 ? at : { x: q.x + (at.x - q.x) * w, y: q.y + (at.y - q.y) * w });
   let out = pts;
-  if (endPin) {
+  if (endW) {
     const hip = pts[0], end = pts[pts.length - 1];
-    const to = toFrame(world, endPin);
+    const to = lerp(end, toFrame(world, storedPin(l, endKey)!), endW);
     const ux = end.x - hip.x, uy = end.y - hip.y, vx = to.x - hip.x, vy = to.y - hip.y;
     const d = ux * ux + uy * uy;
     if (d < 1e-9) out = [...pts.slice(0, -1), to];
@@ -1035,7 +1036,7 @@ export function pinned(input: HoseInput, l: LimbRig, world: LayerFrame): HoseInp
       }));
     }
   }
-  out = out.map((q, i) => { const at = own(keys[i]); return at ? toFrame(world, at) : q; });
+  out = out.map((q, i) => { const w = own(keys[i]); return w ? lerp(q, toFrame(world, storedPin(l, keys[i])!), w) : q; });
   let reach = 0;
   for (let i = 1; i < out.length; i++) reach += Math.hypot(out[i].x - out[i - 1].x, out[i].y - out[i - 1].y);
   return { ...input, points: out, length: Math.max(input.length, reach) };
