@@ -5,6 +5,8 @@ import { confetti, defaultProject, defaultRig } from './defaults';
 import { relayoutBlocks } from './timeline';
 import { useEditor } from './store';
 import { activeTimeline } from './types';
+import { readProp } from './props';
+import { SAILORS_PROJECTS, sailorsProject } from './sailorsPresets';
 import type { Rig, RigNode } from './types';
 
 // --- angles --------------------------------------------------------------------
@@ -430,4 +432,21 @@ it('eyes are mirrored', check(near(scene[1].cx + scene[2].cx, 600, 1e-6), `${sce
   it('while still shaping the journey', check(Math.abs(yOf(700) - linear) > 2, `${linear.toFixed(1)} vs ${yOf(700).toFixed(1)}`));
 
   ed4().loadProject(defaultProject());
+}
+
+// valueAt and evaluateRig narrow each lookup to its own layer's tracks (indexTracks) — the
+// inspector must still read exactly what the stage draws, on a big looping scene
+{
+  const p = sailorsProject(SAILORS_PROJECTS.find((x) => x.name === 'streak-restore')!);
+  const keys = [...new Set(activeTimeline(p).tracks.map((t) => `${t.nodeId}|${t.property}`))];
+  const off: string[] = [];
+  for (const t of [0, 333, 1250, activeTimeline(p).timelineDurationMs - 20]) {
+    const drawn = evaluateRig(p, t);
+    for (const k of keys) {
+      const [id, prop] = k.split('|');
+      const a = valueAt(p, id, prop, t), b = readProp(drawn, id, prop);
+      if (typeof a === 'number' && typeof b === 'number' ? !near(a, b, 1e-6) : JSON.stringify(a) !== JSON.stringify(b)) off.push(`${k}@${t}`);
+    }
+  }
+  it('valueAt reads what evaluateRig draws, every animated property of a 50-layer loop', check(keys.length > 100 && off.length === 0, off.slice(0, 5).join(', ')));
 }

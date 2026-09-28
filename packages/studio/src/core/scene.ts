@@ -91,11 +91,13 @@ function blockWindow(tl: Timeline, blockId: string): [number, number] | null {
  * always wins, so the second mascot can blink on its own row while the preset moves it.
  * With a single lane there is no other lane, and this reads exactly as it always did.
  */
-export function activeTrackFor(tl: Timeline, nodeId: string, property: string, t: number, rig?: Rig): Track | undefined {
-  const inside = blockAt(tl, t, laneOf(rig, tl, nodeId));
+export function activeTrackFor(tl: Timeline, nodeId: string, property: string, t: number, rig?: Rig,
+  /** narrow the scan: this node+property's tracks, and this node's (for its lane) — see indexTracks */
+  candidates = tl.tracks, nodeTracks = tl.tracks): Track | undefined {
+  const inside = blockAt(tl, t, laneOf(rig, tl, nodeId, nodeTracks));
   let fallback: Track | undefined;
   let borrowed: Track | undefined;
-  for (const track of tl.tracks) {
+  for (const track of candidates) {
     if (track.nodeId !== nodeId || track.property !== property) continue;
     if (track.blockId) {
       if (inside && track.blockId === inside.id) return track;
@@ -107,6 +109,23 @@ export function activeTrackFor(tl: Timeline, nodeId: string, property: string, t
   }
   return borrowed ?? fallback;
 }
+
+/**
+ * Tracks grouped by layer, and by layer + property. Built once per evaluation so each
+ * activeTrackFor walks its own handful instead of every track — without it one frame was
+ * quadratic in the track count (a 300-layer scene spent ~50ms a frame in the inspector
+ * alone). Never cached across calls: a commit mutates tracks in place.
+ */
+export function indexTracks(tracks: Track[]) {
+  const byNode = new Map<string, Track[]>(), byKey = new Map<string, Track[]>();
+  for (const t of tracks) {
+    const k = `${t.nodeId} ${t.property}`;
+    (byNode.get(t.nodeId) ?? byNode.set(t.nodeId, []).get(t.nodeId)!).push(t);
+    (byKey.get(k) ?? byKey.set(k, []).get(k)!).push(t);
+  }
+  return { byNode, byKey };
+}
+const NONE: Track[] = [];
 
 const frac = (v: number) => v - Math.floor(v);
 const smoothstep = (u: number) => { const v = Math.min(1, Math.max(0, u)); return v * v * (3 - 2 * v); };
@@ -467,13 +486,19 @@ function applyModifier(rig: Rig, m: Modifier, tSec: number, past?: Past, absSec 
  * A pure derivation — never mutates stored keyframes — shared by playback and export so
  * they can't drift apart, same as everything else in this file.
  */
-export function resolveTracks(project: Project): Track[] {
+export function resolveTracks(project: Project,
+  /** just this node+property's tracks, resolved — what valueAt needs, without resolving every other one */
+  only?: { nodeId: string; property: string }): Track[] {
   const tl = activeTimeline(project);
-  const { tracks, loop, timelineDurationMs: durationMs } = tl;
+  const { loop, timelineDurationMs: durationMs } = tl;
+  if (!loop && !only) return tl.tracks;
+  const ix = indexTracks(tl.tracks);
+  const tracks = only ? ix.byKey.get(`${only.nodeId} ${only.property}`) ?? NONE : tl.tracks;
   if (!loop) return tracks;
-
   const keyOf = (nodeId: string, property: string) => `${nodeId} ${property}`;
   const rig = project.rig;
+  const at = (nodeId: string, property: string, t: number) =>
+    activeTrackFor(tl, nodeId, property, t, rig, ix.byKey.get(keyOf(nodeId, property)) ?? NONE, ix.byNode.get(nodeId) ?? NONE);
 
   // What the viewer actually sees at t=0, per property — the pose the tail must return to.
   const seen = new Set<string>();
@@ -482,7 +507,7 @@ export function resolveTracks(project: Project): Track[] {
     const key = keyOf(t.nodeId, t.property);
     if (seen.has(key)) continue;
     seen.add(key);
-    const winner = activeTrackFor(tl, t.nodeId, t.property, 0, rig);
+    const winner = at(t.nodeId, t.property, 0);
     const value = winner && sampleTrack(winner, 0);
     if (value !== undefined) startValue.set(key, { nodeId: t.nodeId, property: t.property, value });
   }
@@ -495,7 +520,7 @@ export function resolveTracks(project: Project): Track[] {
     if (last.time >= durationMs - 1) return track;
     // only the track actually reachable at the tail gets the close — the others are sealed
     // inside earlier clips and never rendered there.
-    if (activeTrackFor(tl, track.nodeId, track.property, durationMs, rig)?.id !== track.id) return track;
+    if (at(track.nodeId, track.property, durationMs)?.id !== track.id) return track;
     const key = keyOf(track.nodeId, track.property);
     const entry = startValue.get(key);
     if (!entry) return track;
@@ -510,12 +535,12 @@ export function resolveTracks(project: Project): Track[] {
   const starts = blockStarts(tl);
   for (const [key, entry] of startValue) {
     // the closing clip of THIS layer's lane — another mascot's last clip is not its tail
-    const endBlock = blockAt(tl, durationMs, laneOf(rig, tl, entry.nodeId));
+    const endBlock = blockAt(tl, durationMs, laneOf(rig, tl, entry.nodeId, ix.byNode.get(entry.nodeId) ?? NONE));
     if (!endBlock) continue;
     {
       const endStart = starts[tl.blocks.indexOf(endBlock)];
       if (closed.has(key)) continue;
-      if (activeTrackFor(tl, entry.nodeId, entry.property, durationMs, rig)) continue;
+      if (at(entry.nodeId, entry.property, durationMs)) continue;
       const base = readProp(project.rig, entry.nodeId, entry.property);
       if (base === undefined || endStart >= durationMs - 1) continue;
       resolved.push({
@@ -575,12 +600,25 @@ export function effectAt<T extends { id: string }>(project: Project, tl: Timelin
   return out ?? fx;
 }
 
+/** A deep copy of plain JSON-shaped data (what a rig is) — ~5× structuredClone, which
+ *  was a tenth of every frame. Preserves undefined, as structuredClone did. */
+function cloneData<T>(v: T): T {
+  if (typeof v !== 'object' || v === null) return v;
+  if (Array.isArray(v)) return v.map(cloneData) as T;
+  const o = {} as Record<string, unknown>;
+  for (const k in v) o[k] = cloneData((v as Record<string, unknown>)[k]);
+  return o as T;
+}
+
 function evaluateRigRaw(project: Project, timeMs: number): Rig {
-  const rig: Rig = structuredClone(project.rig);
+  const rig: Rig = cloneData(project.rig);
   rig.clockMs = timeMs;
   const tl = activeTimeline(project);
   const resolved = resolveTracks(project);
   const resolvedTl = { ...tl, tracks: resolved };
+  const rix = indexTracks(resolved);
+  const winnerAt = (nodeId: string, path: string, ms: number) =>
+    activeTrackFor(resolvedTl, nodeId, path, ms, project.rig, rix.byKey.get(`${nodeId} ${path}`) ?? NONE, rix.byNode.get(nodeId) ?? NONE);
   // keyframed values back through time, for drivers that react to motion (follow, jelly, letters facing their way)
   const pastCache = new Map<string, number>();
   // a mascot floating, shaking, swaying or walking moves as surely as a keyframed one — follow-through and jelly react to both
@@ -591,19 +629,17 @@ function evaluateRigRaw(project: Project, timeMs: number): Rig {
     let v = pastCache.get(key);
     if (v === undefined) {
       // through the tracks this evaluation already resolved, not valueAt: that would resolve the loop again per sample
-      const tr = activeTrackFor(resolvedTl, nodeId, path, ms, project.rig);
+      const tr = winnerAt(nodeId, path, ms);
       const got = tr ? sampleTrack(tr, tr.blockId ? blockSampleTime(project, tl, tr.blockId, ms) : ms) : readProp(project.rig, nodeId, path);
       v = (typeof got === 'number' ? got : 0) + (movers.has(nodeId) ? modifierMotion(project.rig, tl, nodeId, path, ms) : 0);
       pastCache.set(key, v);
     }
     return v;
   };
-  const seen = new Set<string>();
-  for (const track of resolved) {
-    const key = `${track.nodeId} ${track.property}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    const winner = activeTrackFor(resolvedTl, track.nodeId, track.property, timeMs, project.rig);
+  // one pass per animated property, in first-appearance order (the index's own order)
+  for (const [first] of rix.byKey.values()) {
+    const track = first;
+    const winner = winnerAt(track.nodeId, track.property, timeMs);
     const sampleT = winner?.blockId ? blockSampleTime(project, tl, winner.blockId, timeMs) : timeMs;
     const v = winner && sampleTrack(winner, sampleT);
     if (v !== undefined) writeProp(rig, track.nodeId, track.property, v);
@@ -1062,10 +1098,13 @@ export const fromFrame = (f: LayerFrame, p: Vec2): Vec2 => {
   return { x: (dx * c - dy * s) / (f.kx || 1), y: (dx * s + dy * c) / (f.ky || 1) };
 };
 
-/** A layer's children, in the order the rig holds them — the first mascot first at the top. */
-function childrenOf(rig: Rig, id: string | null): RigNode[] {
-  const kids = Object.values(rig.nodes).filter((n) => n.parentId === id);
-  return id === null ? kids.sort((a, b) => Number(b.id === rig.rootId) - Number(a.id === rig.rootId)) : kids;
+/** Every layer's children, in the order the rig holds them — the first mascot first at the
+ *  top. One pass: asking per layer scanned every layer each time, a third of a busy frame. */
+function childrenMap(rig: Rig): (id: string | null) => RigNode[] {
+  const kids = new Map<string | null, RigNode[]>();
+  for (const n of Object.values(rig.nodes)) (kids.get(n.parentId) ?? kids.set(n.parentId, []).get(n.parentId)!).push(n);
+  kids.get(null)?.sort((a, b) => Number(b.id === rig.rootId) - Number(a.id === rig.rootId));
+  return (id) => kids.get(id) ?? [];
 }
 
 function eyeHeight(n: RigNode): number {
@@ -1276,8 +1315,9 @@ export function buildScene(rig: Rig, view: Viewport, frames?: Map<string, LayerF
     return mine;
   };
 
+  const childrenOf = childrenMap(rig);
   const walk = (parentId: string | null, pf: LayerFrame) => {
-    for (const node of childrenOf(rig, parentId)) {
+    for (const node of childrenOf(parentId)) {
       // a layer in the world at a depth sees it through its own perspective divide
       const f = parentId === null && node.depth?.z ? depthFrame(node.depth.z) : pf;
       if (parentId === null && node.depth?.z) frames?.set(`${WORLD}@${node.id}`, f);
@@ -1811,16 +1851,12 @@ export const sceneAt = (project: Project, t: number, view: Viewport): SceneItem[
 /** Current value of a property, tracks included — what the inspector shows. Mirrors
  * evaluateRig's own per-track sampling (block speed/loop included) so the inspector can
  * never show a value the preview doesn't actually render. */
-/** The active timeline with its loop-closing keys, as evaluateRig samples it. Not cached:
- *  projects are mutated in place mid-commit, and a stale read there is worse than the cost. */
-function resolvedTimeline(project: Project): Timeline {
-  const tl = activeTimeline(project);
-  return tl.loop ? { ...tl, tracks: resolveTracks(project) } : tl;
-}
 
 export function valueAt(project: Project, nodeId: string, path: string, t: number): KeyValue | undefined {
-  const tl = resolvedTimeline(project);
-  const track = activeTrackFor(tl, nodeId, path, t, project.rig);
+  const tl = activeTimeline(project);
+  // this property's own tracks resolved, not the whole timeline's: the inspector asks per row, per frame
+  const own = resolveTracks(project, { nodeId, property: path });
+  const track = activeTrackFor(tl, nodeId, path, t, project.rig, own, tl.tracks.filter((x) => x.nodeId === nodeId));
   const sampleT = track?.blockId ? blockSampleTime(project, tl, track.blockId, t) : t;
   const sampled = track && sampleTrack(track, sampleT);
   if (sampled !== undefined) return sampled;
