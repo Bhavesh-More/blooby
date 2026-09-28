@@ -175,7 +175,7 @@ SceneItem[] ─► ui/Mascot.tsx <Shapes>   stage, thumbs, admin splash, raster 
 ## UI conventions added
 - Design system: DESIGN.md (M3 Expressive, #FBBF79 — a light fill; strokes use --accent). Right rail = Design, Effects, Eyes, States, AI
   (`railTab` 'ai' and 'mcp' both show the AI tab, with a Copilot / Connect AI apps switch). Inspector
-  order: Transform → content (text/curve/rig/limb/shape) → Fill → Stroke → Effects → "More options"
+  order: Transform → Fill → content (text/curve/rig/limb/shape) → Stroke → Effects → "More options"
   (nested folds). Project-file actions live in Editor.tsx `MoreMenu`. `Panel fold={{storageKey}}`
   makes any panel collapsible.
 - `ui/Tooltips.tsx` (mounted by Editor and Shell) lifts `title` onto an M3 tooltip on hover/focus.

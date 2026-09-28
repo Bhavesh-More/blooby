@@ -180,11 +180,16 @@ export function NodeInspector() {
         <span className="tag">{tag}</span>
       </div>
 
-      {/* Like every design tool: where it is first, then what it is made of, then its
-          paint, then how it looks. Everything else is one fold down, under More. */}
+      {/* Like every design tool: where it is and its colour first, then what it is made of,
+          its outline, then how it looks. Everything else is one fold down, under More. */}
       <Collapsible title="Transform" storageKey="insp-transform">
         <TransformSection node={node} isRoot={mascot} />
       </Collapsible>
+      {drawsPaint && (
+        <Collapsible title="Fill" storageKey={curve ? 'insp-curve-fill' : 'insp-fill'} defaultOpen={!curve}>
+          <FillSection node={node} />
+        </Collapsible>
+      )}
       {text && (
         <>
           <Collapsible title="Text" storageKey="insp-text"><TextSection node={node} /></Collapsible>
@@ -202,11 +207,6 @@ export function NodeInspector() {
       {node.kind !== 'limb' && node.kind !== 'group' && !text && !curve && (
         <Collapsible title={mascot ? 'Look' : 'Shape'} storageKey="insp-shape">
           <ShapeEditor node={node} />
-        </Collapsible>
-      )}
-      {drawsPaint && (
-        <Collapsible title="Fill" storageKey={curve ? 'insp-curve-fill' : 'insp-fill'} defaultOpen={!curve}>
-          <FillSection node={node} />
         </Collapsible>
       )}
       {drawsPaint && (

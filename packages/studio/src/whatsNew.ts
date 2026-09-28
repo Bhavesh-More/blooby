@@ -51,7 +51,7 @@ export const RELEASES: Release[] = [
       {
         id: 'panels-in-order', surface: 'editor',
         title: 'Everything where you would look for it',
-        body: 'The right-hand tabs are Design, Effects, Eyes, States and AI, in the order most people reach for them — the copilot and connecting Claude or ChatGPT now share the AI tab. In Design, Transform comes first, then what the layer is made of, then Fill, Stroke and Effects; settings you rarely need live under More options. Open, download, the gallery and Start over moved into the ⋯ menu at the top.',
+        body: 'The right-hand tabs are Design, Effects, Eyes, States and AI, in the order most people reach for them — the copilot and connecting Claude or ChatGPT now share the AI tab. In Design, Transform and Fill come first, then what the layer is made of, then Stroke and Effects; settings you rarely need live under More options. Open, download, the gallery and Start over moved into the ⋯ menu at the top.',
         tour: [
           step('tab-node', 'Design first', 'Select anything and its position, size and colour are right at the top.'),
           step('tab-ai', 'AI in one place', 'Ask the copilot, or switch to Connect AI apps.'),
