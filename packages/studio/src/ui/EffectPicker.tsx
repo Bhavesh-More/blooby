@@ -62,7 +62,7 @@ export function EffectPicker({ project, choices, title, onPick, onClose }: {
             if (!items.length) return null;
             return (
               <div key={g}>
-                <span className="panel-title">{g === 'modifier' ? 'modifiers' : 'effects'}</span>
+                <span className="panel-title">{g === 'modifier' ? 'Modifiers' : 'Effects'}</span>
                 {items.map((c) => (
                   <button key={c.key} className="drawer-item" aria-pressed={hover?.key === c.key}
                     onPointerEnter={() => setHover(c)} onFocus={() => setHover(c)}

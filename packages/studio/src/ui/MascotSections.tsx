@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useEditor } from '../core/store';
+import { useEditor, usePlayhead } from '../core/store';
 import { faceOf, mascotLabel, mascotOf, mascotsOf } from '../core/mascot';
 import { isInside, makeLimbPair } from '../core/layers';
 import { applyEyeAction as writeEyeAction, applySquish, EYE_ACTIONS, SQUISH_PRESETS, squishPreset } from '../core/squish';
@@ -95,7 +95,7 @@ export function MascotFollowSection({ node }: { node: RigNode }) {
 export function SquishSection({ node }: { node: RigNode }) {
   const applySquishPreset = useEditor((s) => s.applySquishPreset);
   const setValue = useEditor((s) => s.setValue);
-  const playhead = useEditor((s) => s.playhead);
+  const playhead = usePlayhead();
   const [pick, setPick] = useState(SQUISH_PRESETS[0].id);
   const bottom = node.kind === 'body' ? node.size.y || node.size.x : node.size.y / 2;
   const grounded = Math.abs((node.anchor?.y ?? 0) - bottom) < 0.5;
@@ -132,7 +132,7 @@ export function SquishSection({ node }: { node: RigNode }) {
  * keyframes the moment they land, nothing opaque.
  */
 export function EyeActions({ eyeIds }: { eyeIds: string[] }) {
-  const playhead = useEditor((s) => s.playhead);
+  const playhead = usePlayhead();
   const applyEyeAction = useEditor((s) => s.applyEyeAction);
   const applySquishTo = useEditor((s) => s.applySquishTo);
   const [pick, setPick] = useState<string>(EYE_ACTIONS[0].id);

@@ -214,7 +214,7 @@ function PresetChip({ project, preset, onOpen, onRename, onColor, onPublish }: {
       }}>
       <span className="chip-color-wrap" title="Accent color — shows on this preset's clips"
         onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
-        <HexColorPicker label="Preset accent" value={preset.color ?? '#8c8577'} onChange={onColor} />
+        <HexColorPicker label="Preset accent" value={preset.color ?? '#FBBF79'} onChange={onColor} />
       </span>
       <MascotThumb className="glyph" scene={live ?? glyphScene(project, preset)} view={compOf(project)} box={live ? box : undefined} />
       <span className="chip-name">{preset.name}</span>
@@ -292,7 +292,7 @@ export function OtherTimelines() {
   if (!others.length) return null;
 
   return (
-    <Panel title="Other timelines">
+    <Panel title="From other timelines" fold={{ storageKey: 'rail-other-timelines', defaultOpen: false }}>
       <div className="chips">
         {others.map((t) => (
           <button key={t.id} className="chip" title={`Add all of "${t.name}" as one clip · ${(t.timelineDurationMs / 1000).toFixed(1)}s`}
@@ -308,7 +308,8 @@ export function OtherTimelines() {
 
 export function Expressions() {
   const project = useEditor((s) => s.project);
-  const playhead = useEditor((s) => s.playhead);
+  // read on click, not subscribed: this list re-rendering every frame of playback was waste
+  const playheadNow = () => useEditor.getState().playhead;
   const capture = useEditor((s) => s.captureExpression);
   const renameExpression = useEditor((s) => s.renameExpression);
   const apply = useEditor((s) => s.applyExpression);
@@ -333,7 +334,7 @@ export function Expressions() {
 
   const adoptShared = (x: Expression) => {
     commit((p) => { if (!p.expressions.some((e) => e.id === x.id)) p.expressions = [...p.expressions, x]; }, 'add pose from library');
-    apply(x.id, playhead);
+    apply(x.id, playheadNow());
   };
 
   const ids = useMemo(() => project.expressions.map((e) => e.id), [project.expressions]);
@@ -341,7 +342,7 @@ export function Expressions() {
   const b = to || ids[1] || ids[0] || '';
 
   return (
-    <Panel title="Expressions">
+    <Panel title="Expressions" fold={{ storageKey: 'rail-expressions', defaultOpen: false }}>
       {publishedPose && <p className="hint">“{publishedPose}” submitted for review.</p>}
       {publishingPose && (
         <PublishDialog item={{ kind: 'expression', value: publishingPose }}
@@ -358,8 +359,8 @@ export function Expressions() {
           <span className="panel-title">Captured poses</span>
           <div className="chips">
             {project.expressions.map((x) => (
-              <button key={x.id} className="chip" title={`Apply "${x.name}" at ${(playhead / 1000).toFixed(2)}s — double-click to rename`}
-                onClick={() => apply(x.id, playhead)}
+              <button key={x.id} className="chip" title={`Apply "${x.name}" at the playhead — double-click to rename`}
+                onClick={() => apply(x.id, playheadNow())}
                 onDoubleClick={(e) => {
                   e.stopPropagation();
                   const next = prompt('Rename captured pose', x.name);
@@ -384,7 +385,7 @@ export function Expressions() {
           <span className="panel-title">From the library</span>
           <div className="chips">
             {shared.map((x) => (
-              <button key={x.id} className="chip" title={`Add "${x.name}" and apply it at ${(playhead / 1000).toFixed(2)}s`}
+              <button key={x.id} className="chip" title={`Add "${x.name}" and apply it at the playhead`}
                 onClick={() => adoptShared(x)}>
                 <span className="glyph" style={{ display: 'grid', placeItems: 'center', font: '600 9px var(--mono)', color: 'var(--paper)' }}>
                   {Object.keys(x.snapshot ?? {}).length}
@@ -415,7 +416,7 @@ export function Expressions() {
         <span className="hint">ms</span>
         <span className="spacer" />
         <button className="btn sm primary" disabled={!a || !b || a === b}
-          onClick={() => morph(a, b, playhead, dur, namedEasing(easing))}>Morph here</button>
+          onClick={() => morph(a, b, playheadNow(), dur, namedEasing(easing))}>Morph here</button>
       </div>
     </Panel>
   );

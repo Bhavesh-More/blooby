@@ -4,10 +4,9 @@ import type { ReactNode } from 'react';
  * The panel's charts, drawn as plain elements.
  *
  * Still no chart library. Everything here is a max, a scale and a map — and a dependency
- * would bring its own colours, which this design does not have (DESIGN.md: monochrome,
- * colour only for destructive states). A second series is drawn at a lighter weight INSIDE
- * the first rather than beside it, so the pair reads as "of these views, this many people"
- * without needing a legend to decode.
+ * would bring its own palette instead of the brand's roles (DESIGN.md). A second series is
+ * drawn in a lighter tone INSIDE the first rather than beside it, so the pair reads as "of
+ * these views, this many people" without needing a legend to decode.
  */
 
 export interface Series { date: string }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import {
   Dialog, Editor, ErrorState, SaveIndicator, projectsApi, useAutosave, useEditor, useMcpLive,
@@ -120,26 +120,39 @@ export function CloudEditor({ projectId, onExit }: { projectId: string; onExit: 
             ) : (
               <span className="tag" title="Changes here are not saved. Duplicate it to keep your own copy.">View only</span>
             )}
-            {isOwner && meta && (
-              <>
-                <select className="sel" aria-label="Who can see it" value={meta.visibility} disabled={sharing}
-                  title="Public projects are listed in the Community tab"
-                  onChange={(e) => share({ visibility: e.target.value as 'private' | 'public' })}>
-                  <option value="private">Private</option>
-                  <option value="public">Public</option>
-                </select>
-                {meta.visibility === 'public' && (
-                  <select className="sel" aria-label="What others can do" value={meta.access ?? 'view'} disabled={sharing}
-                    title="View: anyone can open and duplicate it. Edit: anyone signed in can also change it."
-                    onChange={(e) => share({ access: e.target.value as 'view' | 'edit' })}>
-                    <option value="view">Can view</option>
-                    <option value="edit">Can edit</option>
-                  </select>
-                )}
-              </>
+            {isOwner && meta ? (
+              /* sharing is one menu, like every other editor's Share button — the header
+                 keeps room for what you use while animating */
+              <ShareMenu label={meta.visibility === 'public' ? 'Shared' : 'Share'}>
+                  <div className="menu-head">Sharing</div>
+                  <label className="share-row">
+                    <span>Who can see it</span>
+                    <select className="sel" aria-label="Who can see it" value={meta.visibility} disabled={sharing}
+                      title="Public projects are listed in the Community tab"
+                      onChange={(e) => share({ visibility: e.target.value as 'private' | 'public' })}>
+                      <option value="private">Only me</option>
+                      <option value="public">Anyone — in Community</option>
+                    </select>
+                  </label>
+                  {meta.visibility === 'public' && (
+                    <label className="share-row">
+                      <span>What others can do</span>
+                      <select className="sel" aria-label="What others can do" value={meta.access ?? 'view'} disabled={sharing}
+                        title="View: anyone can open and duplicate it. Edit: anyone signed in can also change it."
+                        onChange={(e) => share({ access: e.target.value as 'view' | 'edit' })}>
+                        <option value="view">Can view</option>
+                        <option value="edit">Can edit</option>
+                      </select>
+                    </label>
+                  )}
+                  <div className="menu-divider" />
+                  <button className="menu-item" onClick={() => void duplicate()} disabled={sharing}
+                    title="Make a copy in your own projects">Duplicate into my projects</button>
+              </ShareMenu>
+            ) : (
+              <button className="btn sm" onClick={() => void duplicate()} disabled={sharing}
+                title="Make a copy in your own projects">Duplicate</button>
             )}
-            <button className="btn sm" onClick={() => void duplicate()} disabled={sharing}
-              title="Make a copy in your own projects">Duplicate</button>
           </span>
         } />
       </div>
@@ -170,5 +183,21 @@ function CloudIcon() {
       <path d="M4.4 12.5a2.9 2.9 0 0 1-.3-5.8 3.7 3.7 0 0 1 7.1-1 2.6 2.6 0 0 1 .5 5.2" />
       <path d="M8 13.5V7.6M8 7.6 6.2 9.4M8 7.6l1.8 1.8" />
     </svg>
+  );
+}
+
+/** The Share button: a native disclosure, closed again by a click anywhere outside it. */
+function ShareMenu({ label, children }: { label: string; children: ReactNode }) {
+  const ref = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    const away = (e: PointerEvent) => { const d = ref.current; if (d?.open && !d.contains(e.target as Node)) d.open = false; };
+    document.addEventListener('pointerdown', away, true);
+    return () => document.removeEventListener('pointerdown', away, true);
+  }, []);
+  return (
+    <details ref={ref} className="share-menu">
+      <summary className="btn tonal sm" title="Who can see this project, and a copy of it">{label}</summary>
+      <div className="menu-pop share-pop">{children}</div>
+    </details>
   );
 }

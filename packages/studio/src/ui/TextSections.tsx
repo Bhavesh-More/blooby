@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useEditor, writeKeyframe } from '../core/store';
+import { useEditor, writeKeyframe, usePlayhead } from '../core/store';
 import { valueAt } from '../core/scene';
 import { hasItalic as italicAvailable, loadFont } from '../core/fonts';
 import { textName } from '../core/layers';
@@ -16,7 +16,7 @@ import type { RigNode, TextCharAnim, TextPathSpec, TextStyle } from '../core/typ
 
 export function TextSection({ node }: { node: RigNode }) {
   const project = useEditor((s) => s.project);
-  const playhead = useEditor((s) => s.playhead);
+  const playhead = usePlayhead();
   const setValue = useEditor((s) => s.setValue);
   const updateNode = useEditor((s) => s.updateNode);
   const setText = useEditor((s) => s.setText);
@@ -162,7 +162,7 @@ const CHAR_KINDS: { id: TextCharAnim; label: string }[] = [
 
 export function TextLettersSection({ node }: { node: RigNode }) {
   const project = useEditor((s) => s.project);
-  const playhead = useEditor((s) => s.playhead);
+  const playhead = usePlayhead();
   const commit = useEditor((s) => s.commit);
   const setText = useEditor((s) => s.setText);
   const t = node.text!;

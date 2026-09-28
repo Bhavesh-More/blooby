@@ -1,4 +1,4 @@
-import { useEditor } from '../core/store';
+import { useEditor, usePlayhead } from '../core/store';
 import { PropRow } from './bits';
 import { valueAt } from '../core/scene';
 import { curveFromPath, insertPoint, reverseCurve } from '../core/curve';
@@ -18,7 +18,7 @@ const TYPES: { id: CurveType; label: string; title: string }[] = [
  */
 export function CurveSection({ node }: { node: RigNode }) {
   const project = useEditor((s) => s.project);
-  const playhead = useEditor((s) => s.playhead);
+  const playhead = usePlayhead();
   const editCurve = useEditor((s) => s.editCurve);
   const setCurveType = useEditor((s) => s.setCurveType);
   const updateNode = useEditor((s) => s.updateNode);

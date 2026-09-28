@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import {
+  Icon,
   BloobyMark, Dialog, Editor, adminApi, useEditor, activeTimeline,
   type NavGroup, type Project,
 } from '@blooby/studio';
@@ -48,7 +49,7 @@ export function OfficialEditor({ nav, active, onNavigate }: {
                 {group.items.map((item) => (
                   <button key={item.id} className="side-item" aria-current={active === item.id}
                     onClick={() => { setNavOpen(false); onNavigate(item.id); }}>
-                    <span className="side-glyph" aria-hidden>{item.glyph}</span>
+                    <span className="side-glyph" aria-hidden>{item.icon ? <Icon name={item.icon} size={20} /> : item.glyph}</span>
                     <span className="side-label">{item.label}</span>
                   </button>
                 ))}

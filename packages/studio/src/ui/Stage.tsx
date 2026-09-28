@@ -805,15 +805,15 @@ export function Stage() {
           <button className="btn icon sm" aria-pressed={fullscreen} title={fullscreen ? 'Exit fullscreen (Esc)' : 'Fullscreen preview'}
             onClick={toggleFullscreen}><Icon name="expand" /></button>
         </div>
-        <div className="stage-bg" title="Backdrop for the preview and for every export">
-          {BG_SWATCHES.map((c) => (
-            <button key={c} className={`sw${c === 'transparent' ? ' checker' : ''}`} aria-pressed={bg === c}
-              title={c === 'transparent' ? 'Transparent (no backdrop in exports)' : c}
-              style={c === 'transparent' ? undefined : { background: c }}
-              onClick={() => setBgPersist(c)} />
-          ))}
-          <HexColorPicker label="Custom preview background" value={transparent ? DEFAULT_BG : bg} onChange={setBgPersist} />
-        </div>
+      </div>
+      <div className="stage-bg" title="Backdrop for the preview and for every export">
+        {BG_SWATCHES.map((c) => (
+          <button key={c} className={`sw${c === 'transparent' ? ' checker' : ''}`} aria-pressed={bg === c}
+            title={c === 'transparent' ? 'Transparent (no backdrop in exports)' : c}
+            style={c === 'transparent' ? undefined : { background: c }}
+            onClick={() => setBgPersist(c)} />
+        ))}
+        <HexColorPicker label="Custom preview background" value={transparent ? DEFAULT_BG : bg} onChange={setBgPersist} />
       </div>
       {tool === 'pen' && (
         <div className="stage-hint" role="status">

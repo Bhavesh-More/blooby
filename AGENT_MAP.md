@@ -26,6 +26,11 @@ SceneItem[] ─► ui/Mascot.tsx <Shapes>   stage, thumbs, admin splash, raster 
   eyes inside a face stay mapped. `pinned()` rewrites a limb's end point to `limb.pin` (WORLD px).
 - `SceneItem.trim` → `Shapes` draws the stroke unscaled in px with one measured dash
   (`trimStroke`); lottie writes a `tm` shape in `paintGroups`.
+- Per-frame cost (don't regress): `indexTracks` groups tracks by node and node+property once per
+  evaluation and `activeTrackFor(…, candidates, nodeTracks)` / `laneOf(…, tracks)` scan only those;
+  `valueAt` resolves just its own key (`resolveTracks(p, {nodeId, property})`); `cloneData` (not
+  structuredClone) copies the rig; `buildScene` builds a parent→children map once; `path.ts`
+  memoises parses by string. Guarded by the valueAt-vs-evaluateRig test in scene.test.ts.
 
 ## Motion systems (round 4)
 - `core/effects.ts EFFECTS` = the effect stack; params are props `effect.<kind>.<param>`.
@@ -168,6 +173,15 @@ SceneItem[] ─► ui/Mascot.tsx <Shapes>   stage, thumbs, admin splash, raster 
   via `sceneAt` + `MascotThumb` (same renderer as the editor).
 
 ## UI conventions added
+- Design system: DESIGN.md (M3 Expressive, #FBBF79 — a light fill; strokes use --accent). Right rail = Design, Effects, Eyes, States, AI
+  (`railTab` 'ai' and 'mcp' both show the AI tab, with a Copilot / Connect AI apps switch). Inspector
+  order: Transform → content (text/curve/rig/limb/shape) → Fill → Stroke → Effects → "More options"
+  (nested folds). Project-file actions live in Editor.tsx `MoreMenu`. `Panel fold={{storageKey}}`
+  makes any panel collapsible.
+- `ui/Tooltips.tsx` (mounted by Editor and Shell) lifts `title` onto an M3 tooltip on hover/focus.
+- `kit/Legal.tsx LegalPage` = /privacy and /terms in both apps; its claims must match the code.
+- Playback re-renders: `usePlayhead()` for panels; Timeline's `Timecode`/`PlayheadLine`/`BlockTick`/
+  `AppearAdd` are the only per-frame parts of the timeline.
 - Menus/popovers close on outside click via `useDismiss(open, close, [refs])` in `ui/bits.tsx`.
 - Colour text entry: `readHex` (core/color.ts) behind the hex field in `ColorField`.
 - Timeline easing popover on a track's last key edits the incoming segment (`curveKf`);

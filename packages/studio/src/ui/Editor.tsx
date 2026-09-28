@@ -24,9 +24,11 @@ import { looksLikeSvg } from '../core/svg';
 import { LAYERS_MARK, makeSvgLayer } from '../core/layers';
 import { activeTimeline } from '../core/types';
 import { startTourWhenReady } from '../kit/tour';
-import { GithubLink, TourMenu } from '../kit/TourMenu';
+import { GITHUB_URL, GithubMark, TourMenu } from '../kit/TourMenu';
 import { WhatsNewButton } from '../kit/WhatsNew';
 import { EDITOR_TOURS, INTRO_TOUR } from './tours';
+import { Icon, useDismiss, type IconName } from './bits';
+import { Tooltips } from './Tooltips';
 import type { ReactNode } from 'react';
 import type { Project } from '../core/types';
 
@@ -194,35 +196,32 @@ export function Editor({ onSave, saveLabel, cloudBar, projectId }: {
   return (
     <div className="app">
       <header className="topbar">
-        <span className="wordmark"><span className="dot" />blooby</span>
-        <input className="txt" style={{ width: 190 }} value={project.name} aria-label="Project name"
+        <span className="wordmark" aria-label="blooby"><span className="dot" /><span className="wordmark-word">blooby</span></span>
+        <input className="proj-name" value={project.name} aria-label="Project name" title="Rename the project"
           onChange={(e) => commit((p) => { p.name = e.target.value; }, 'projname')} />
-        <span className="crumb">
-          <strong>{Object.keys(project.rig.nodes).length}</strong> layers ·
-          <strong> {activeTimeline(project).tracks.length}</strong> tracks ·
-          <strong> {activeTimeline(project).blocks.length}</strong> blocks
+        {cloudBar}
+        <span className="topbar-group" role="group" aria-label="History">
+          <button className="btn ghost icon" onClick={undo} title="Undo (⌘Z)" aria-label="Undo"><Icon name="undo" size={17} /></button>
+          <button className="btn ghost icon" onClick={redo} title="Redo (⇧⌘Z)" aria-label="Redo"><Icon name="redo" size={17} /></button>
         </span>
+        <span className="spacer" />
         <DurationField />
         <button className="btn ghost sm comp-chip" onClick={openComposition} title="Composition — size, frame rate, length and backdrop">
           {compOf(project).width} × {compOf(project).height}
         </button>
-        {cloudBar}
-        <span className="spacer" />
         <input ref={file} type="file" accept=".json,.lottie" hidden
           onChange={(e) => { const f = e.target.files?.[0]; if (f) importProject(f); e.target.value = ''; }} />
-        <button className="btn ghost sm" onClick={undo} title="Undo (⌘Z)">Undo</button>
-        <button className="btn ghost sm" onClick={redo} title="Redo (⇧⌘Z)">Redo</button>
-        <button className="btn sm" title="A .blooby.json project, or a .lottie to import its state machine"
-          onClick={() => file.current?.click()}>Open</button>
-        <button className="btn sm" onClick={saveProject}>Save</button>
-        {onSave && <button className="btn sm" onClick={() => onSave(project)}>{saveLabel ?? 'Save to cloud'}</button>}
-        <button className="btn sm" onClick={openGallery}>Gallery</button>
-        <button className="btn sm" title="Reset everything back to the default mascot — the rig, every timeline and the state machine"
-          onClick={() => confirm(`Reset "${project.name}"?\n\nThe rig, every timeline, the state machine and all keyframes go back to the default mascot. This cannot be undone — save or export first if you want to keep it.`) && resetProject()}>New</button>
-        <GithubLink />
-        <span data-tour="export"><ExportBar /></span>
         <WhatsNewButton surface="editor" />
         <TourMenu tours={EDITOR_TOURS} label="Show me around" />
+        <MoreMenu project={project} items={[
+          { icon: 'folder', label: 'Open a file…', hint: 'A .blooby.json project, or a .lottie to import its state machine', onSelect: () => file.current?.click() },
+          { icon: 'download', label: 'Download project file', hint: 'Saves a .blooby.json you can open again', onSelect: saveProject },
+          ...(onSave ? [{ icon: 'cloud' as const, label: saveLabel ?? 'Save to cloud', onSelect: () => onSave(project) }] : []),
+          { icon: 'gallery', label: 'Gallery', hint: 'Projects saved in this browser', onSelect: openGallery },
+          { icon: 'file', label: 'Start over', hint: 'Back to the default mascot', danger: true,
+            onSelect: () => { if (confirm(`Reset "${project.name}"?\n\nThe rig, every timeline, the state machine and all keyframes go back to the default mascot. This cannot be undone — save or export first if you want to keep it.`)) resetProject(); } },
+        ]} />
+        <span data-tour="export"><ExportBar /></span>
       </header>
 
       <div className="body-split">
@@ -240,13 +239,15 @@ export function Editor({ onSave, saveLabel, cloudBar, projectId }: {
               { min: 320, content: <div className="stage" data-tour="stage"><Stage /></div> },
               { min: 240, max: 560, content: (
                 <div className="rail rail-right" data-tour="rail-right">
-                  <div className="tabs">
-                    {(['node', 'eyes', 'fx', 'states', 'ai', 'mcp'] as RailTab[]).map((t) => (
-                      <button key={t} data-tour={`tab-${t}`} aria-pressed={tab === t} onClick={() => setTab(t)}>
-                        {t === 'node' ? (selectedBlockId ? 'Clip' : 'Node') : t === 'eyes' ? 'Eyes' : t === 'fx' ? 'Effects' : t === 'states' ? 'States' : t === 'ai' ? 'Copilot' : 'MCP'}
+                  <nav className="tabs" aria-label="Panels">
+                    {(['node', 'fx', 'eyes', 'states', 'ai'] as RailTab[]).map((t) => (
+                      <button key={t} data-tour={`tab-${t}`} aria-pressed={tab === t || (t === 'ai' && tab === 'mcp')} onClick={() => setTab(t)}
+                        title={TAB_HELP[t]}>
+                        <span className="tab-ico"><Icon name={TAB_ICON[t]} size={17} /></span>
+                        <span className="tab-label">{t === 'node' && selectedBlockId ? 'Clip' : TAB_LABEL[t]}</span>
                       </button>
                     ))}
-                  </div>
+                  </nav>
                   <div className="rail-tab-body">
                     {/* folds rather than a split, for the same reason as the Effects tab:
                         the inspector is the section you are working in, so it gets the height */}
@@ -273,6 +274,12 @@ export function Editor({ onSave, saveLabel, cloudBar, projectId }: {
                       </>
                     )}
                     {tab === 'states' && <StateMachine />}
+                    {(tab === 'ai' || tab === 'mcp') && (
+                      <div className="seg sub-tabs" role="tablist" aria-label="AI">
+                        <button role="tab" aria-pressed={tab === 'ai'} aria-selected={tab === 'ai'} onClick={() => setTab('ai')}>Copilot</button>
+                        <button role="tab" data-tour="tab-mcp" aria-pressed={tab === 'mcp'} aria-selected={tab === 'mcp'} onClick={() => setTab('mcp')}>Connect AI apps</button>
+                      </div>
+                    )}
                     {tab === 'ai' && <Copilot />}
                     {tab === 'mcp' && <McpPanel projectId={projectId} />}
                   </div>
@@ -280,7 +287,9 @@ export function Editor({ onSave, saveLabel, cloudBar, projectId }: {
               ) },
             ]} />
           ) },
-          { min: 220, max: 780, default: 420, content: (
+          // the timeline's first height scales with the window, so a laptop screen still
+          // leaves the stage room; a dragged height is remembered after that
+          { min: 220, max: 780, default: Math.round(Math.min(420, Math.max(260, window.innerHeight * 0.4))), content: (
             <div className="timeline-pane" data-tour="timeline">
               <TimelineTabs />
               <Timeline onOpenEffects={() => setTab('fx')} />
@@ -290,7 +299,65 @@ export function Editor({ onSave, saveLabel, cloudBar, projectId }: {
       </div>
       <Gallery />
       <CompositionDialog />
+      <Tooltips />
       {pasteNote && <div className="toast" role="status">{pasteNote}</div>}
     </div>
+  );
+}
+
+/* the right rail, in the order people reach for it: the selected thing, how it moves,
+   its face, the state machine, then help from AI (the copilot, or an outside app over MCP) */
+const TAB_LABEL: Record<RailTab, string> = { node: 'Design', fx: 'Effects', eyes: 'Eyes', states: 'States', ai: 'AI', mcp: 'AI' };
+const TAB_ICON: Record<RailTab, IconName> = { node: 'sliders', fx: 'sparkle', eyes: 'eye', states: 'flow', ai: 'bot', mcp: 'plug' };
+const TAB_HELP: Record<RailTab, string> = {
+  node: 'Design — position, size, colour and everything else about what is selected',
+  fx: 'Effects — shake, float, particles and other motion on the selected layer or clip',
+  eyes: 'Eyes — where the mascot looks, and blinks',
+  states: 'States — the state machine that switches between your timelines',
+  ai: 'AI — ask the copilot, or connect Claude, ChatGPT or Cursor',
+  mcp: 'AI — ask the copilot, or connect Claude, ChatGPT or Cursor',
+};
+
+interface MoreItem { icon: IconName; label: string; hint?: string; danger?: boolean; onSelect: () => void }
+
+/**
+ * Everything about the project FILE — open, download, the local gallery, starting over —
+ * plus the links nobody needs every day. One menu instead of six buttons in the header,
+ * so what is left up there is what you actually use while animating.
+ */
+function MoreMenu({ project, items }: { project: Project; items: MoreItem[] }) {
+  const [open, setOpen] = useState(false);
+  const btn = useRef<HTMLButtonElement>(null);
+  const pop = useRef<HTMLDivElement>(null);
+  useDismiss(open, () => setOpen(false), [btn, pop]);
+  const tl = activeTimeline(project);
+  return (
+    <span className="more-menu">
+      <button ref={btn} className="btn ghost icon" data-tour="more-menu" aria-label="More" aria-haspopup="menu" aria-expanded={open}
+        title="Open, download, gallery and more" onClick={() => setOpen((v) => !v)}><Icon name="more" size={18} /></button>
+      {open && (
+        <div ref={pop} className="menu-pop" role="menu">
+          <div className="menu-head">
+            {Object.keys(project.rig.nodes).length} layers · {tl.tracks.length} tracks · {tl.blocks.length} clips
+          </div>
+          {items.map((it) => (
+            <button key={it.label} role="menuitem" className="menu-item" data-danger={it.danger || undefined}
+              onClick={() => { setOpen(false); it.onSelect(); }}>
+              <Icon name={it.icon} size={17} />
+              <span className="menu-text"><span>{it.label}</span>{it.hint && <small>{it.hint}</small>}</span>
+            </button>
+          ))}
+          <div className="menu-divider" />
+          <a role="menuitem" className="menu-item" href={GITHUB_URL} target="_blank" rel="noopener noreferrer" onClick={() => setOpen(false)}>
+            <GithubMark size={16} /><span className="menu-text"><span>View on GitHub</span></span>
+          </a>
+          <div className="menu-links">
+            <a href="/privacy" target="_blank" rel="noopener">Privacy</a>
+            <span aria-hidden>·</span>
+            <a href="/terms" target="_blank" rel="noopener">Terms</a>
+          </div>
+        </div>
+      )}
+    </span>
   );
 }

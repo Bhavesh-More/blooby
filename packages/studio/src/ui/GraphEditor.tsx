@@ -7,7 +7,8 @@ import { PROP_LABEL } from '../core/props';
 import { clipColor } from './Timeline';
 
 const PAD = { l: 40, r: 14, t: 14, b: 20 };
-const PALETTE = ['#2233e0', '#d9401f', '#2f9e57', '#a24bd6', '#c98a12', '#0f8ea3'];
+// canvas can't read CSS variables cheaply per frame, so the roles are spelled out: --accent, --tertiary, then hues that read on white
+const PALETTE = ['#AC7A3B', '#5C6321', '#2E6FA3', '#C0392B', '#0F8E83', '#8E4FA0'];
 const STEPS = 36;
 
 /** A track's own clip color when it has one, else the next unused fallback from the
@@ -110,8 +111,8 @@ export function GraphEditor({ tracks, selected, onSelect, focus, onToggleFocus, 
 
     // grid + value axis
     g.font = '10px JetBrains Mono, monospace';
-    g.strokeStyle = 'rgba(206,198,182,.55)';
-    g.fillStyle = '#857d6d';
+    g.strokeStyle = 'rgba(199,197,214,.6)';
+    g.fillStyle = '#64627A';
     g.lineWidth = 1;
     for (let i = 0; i <= 4; i++) {
       const v = lo + ((hi - lo) * i) / 4;
@@ -120,7 +121,7 @@ export function GraphEditor({ tracks, selected, onSelect, focus, onToggleFocus, 
       g.fillText(v.toFixed(Math.abs(hi - lo) < 4 ? 2 : 0), 4, y + 3);
     }
     if (axisTrack) {
-      g.fillStyle = '#46423b';
+      g.fillStyle = '#4A4858';
       g.fillText(`${PROP_LABEL[axisTrack.property] ?? axisTrack.property} · ${project.rig.nodes[axisTrack.nodeId]?.name ?? axisTrack.nodeId}`, PAD.l + 4, 11);
     }
     const secStep = duration > 8000 ? 2000 : 1000;
@@ -163,7 +164,7 @@ export function GraphEditor({ tracks, selected, onSelect, focus, onToggleFocus, 
         const dx = b.time - a.time, dv = (b.value as number) - (a.value as number);
         const h1 = { x: X(a.time + dx * p1.x), y: TY((a.value as number) + dv * p1.y) };
         const h2 = { x: X(a.time + dx * p2.x), y: TY((a.value as number) + dv * p2.y) };
-        g.strokeStyle = 'rgba(23,22,27,.45)'; g.lineWidth = 1;
+        g.strokeStyle = 'rgba(27,27,34,.45)'; g.lineWidth = 1;
         g.beginPath(); g.moveTo(X(a.time), TY(a.value as number)); g.lineTo(h1.x, h1.y);
         g.moveTo(X(b.time), TY(b.value as number)); g.lineTo(h2.x, h2.y); g.stroke();
         for (const p of [h1, h2]) {
@@ -174,7 +175,7 @@ export function GraphEditor({ tracks, selected, onSelect, focus, onToggleFocus, 
 
       for (const k of keys) {
         const on = selected?.trackId === track.id && selected.kfId === k.id;
-        g.fillStyle = on ? col : '#f1eee8';
+        g.fillStyle = on ? col : '#F0ECF7';
         g.strokeStyle = col; g.lineWidth = 1.6;
         g.beginPath();
         const x = X(k.time), y = TY(k.value as number);
@@ -187,7 +188,7 @@ export function GraphEditor({ tracks, selected, onSelect, focus, onToggleFocus, 
     });
 
     const px = X(playhead);
-    g.strokeStyle = '#2233e0'; g.lineWidth = 1;
+    g.strokeStyle = '#AC7A3B'; g.lineWidth = 2;
     g.beginPath(); g.moveTo(px + 0.5, 0); g.lineTo(px + 0.5, h); g.stroke();
   });
 

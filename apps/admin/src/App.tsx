@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router';
 import {
-  Avatar, BloobyMark, EmptyState, GoogleMark, Shell, auth, consumeAuthError, startTour,
+  Avatar, BloobyMark, EmptyState, GoogleMark, Icon, LegalPage, Shell, auth, consumeAuthError, startTour,
   startTourWhenReady, usePageViews, useSession,
   type DriveStep, type NavGroup, type SessionUser,
 } from '@blooby/studio';
@@ -17,21 +17,21 @@ import { Copilot } from './features/Copilot';
 
 const NAV: NavGroup[] = [
   { items: [
-    { id: '/dashboard', label: 'Dashboard', glyph: '▤' },
-    { id: '/traffic', label: 'Traffic', glyph: '◫' },
-    { id: '/mcp', label: 'MCP', glyph: '✳' },
+    { id: '/dashboard', label: 'Dashboard', glyph: '▤', icon: 'grid4' },
+    { id: '/traffic', label: 'Traffic', glyph: '◫', icon: 'chart' },
+    { id: '/mcp', label: 'MCP', glyph: '✳', icon: 'plug' },
   ] },
   { title: 'People', items: [
-    { id: '/users', label: 'Users', glyph: '◍' },
-    { id: '/projects', label: 'Projects', glyph: '◳' },
+    { id: '/users', label: 'Users', glyph: '◍', icon: 'users' },
+    { id: '/projects', label: 'Projects', glyph: '◳', icon: 'layers' },
   ] },
   { title: 'Content', items: [
-    { id: '/community', label: 'Community', glyph: '◈' },
-    { id: '/editor', label: 'Official', glyph: '✦' },
-    { id: '/splashscreens', label: 'Splashscreen', glyph: '◐' },
+    { id: '/community', label: 'Community', glyph: '◈', icon: 'flag' },
+    { id: '/editor', label: 'Official', glyph: '✦', icon: 'star' },
+    { id: '/splashscreens', label: 'Splashscreen', glyph: '◐', icon: 'splash' },
   ] },
   { title: 'System', items: [
-    { id: '/copilot', label: 'Copilot', glyph: '◇' },
+    { id: '/copilot', label: 'Copilot', glyph: '◇', icon: 'bot' },
   ] },
 ];
 
@@ -56,6 +56,8 @@ export function App() {
   return (
     <Routes>
       <Route path="/login" element={user ? <BackToWhereYouWere /> : <SignIn />} />
+      <Route path="/privacy" element={<LegalPage doc="privacy" />} />
+      <Route path="/terms" element={<LegalPage doc="terms" />} />
 
       <Route element={<RequireAdmin user={user} isAdmin={isAdmin} />}>
         {/* the editor takes the whole window: the preview is the point of that screen,
@@ -126,8 +128,8 @@ function AdminShell({ user }: { user: SessionUser }) {
         <div className="who">
           <Avatar name={user.name ?? user.email} url={user.avatarUrl} size={24} />
           <span className="who-name" title={user.email ?? undefined}>{user.name ?? user.email ?? 'Admin'}</span>
-          <button className="btn ghost sm" title="Replay the tour"
-            onClick={() => startTour('admin', ADMIN_TOUR, { force: true })}>?</button>
+          <button className="btn ghost icon sm" title="Replay the tour" aria-label="Replay the tour"
+            onClick={() => startTour('admin', ADMIN_TOUR, { force: true })}><Icon name="help" size={16} /></button>
           <button className="btn ghost sm" onClick={() => void auth.signOut()}>Sign out</button>
         </div>
       }

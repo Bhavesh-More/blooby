@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { useDismiss } from './bits';
-import { useEditor } from '../core/store';
+import { useEditor, usePlayhead } from '../core/store';
 import { Collapsible } from './Collapsible';
 import { CurveEditor } from './CurveEditor';
 import { StateGraph } from './StateGraph';
@@ -121,7 +121,7 @@ export function StateMachine() {
  */
 function StateDirector() {
   const project = useEditor((s) => s.project);
-  const playhead = useEditor((s) => s.playhead);
+  const playhead = usePlayhead();
   const selection = useEditor((s) => s.selection);
   const setActiveTimeline = useEditor((s) => s.setActiveTimeline);
   const goToState = useEditor((s) => s.goToState);
@@ -886,7 +886,7 @@ function ResetSection({ onClearSelection }: { onClearSelection: () => void }) {
  */
 function ManualTriggers() {
   const project = useEditor((s) => s.project);
-  const playhead = useEditor((s) => s.playhead);
+  const playhead = usePlayhead();
   const previousTimelineId = useEditor((s) => s.previousTimelineId);
   const pendingStateChange = useEditor((s) => s.pendingStateChange);
   const setState = useEditor((s) => s.setState);

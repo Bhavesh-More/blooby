@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { DriveStep } from "driver.js";
 import { hasSeenTour, startTour } from "./tour";
+import { Icon } from "../ui/bits";
 
 /** Where Blooby's source lives. */
 export const GITHUB_URL = "https://github.com/divyanshu-patil/blooby";
@@ -86,13 +87,14 @@ export function TourMenu({
   return (
     <div className="tourmenu" ref={ref}>
       <button
-        className="btn ghost sm"
+        className="btn ghost icon"
         title={label}
+        aria-label={label}
         aria-expanded={open}
         aria-haspopup="menu"
         onClick={() => setOpen((v) => !v)}
       >
-        ?
+        <Icon name="help" size={18} />
       </button>
 
       {open && (

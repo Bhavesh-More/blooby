@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { useEditor } from '../core/store';
+import { useEditor, usePlayhead } from '../core/store';
 import { activeTrackFor, valueAt } from '../core/scene';
 import { mascotLabel, mascotOf, mascotsOf } from '../core/mascot';
 import { activeTimeline } from '../core/types';
@@ -15,7 +15,7 @@ const PAD_RANGE = 42; // degrees at the pad's edge
  */
 export function EyePanel() {
   const project = useEditor((s) => s.project);
-  const playhead = useEditor((s) => s.playhead);
+  const playhead = usePlayhead();
   const setValue = useEditor((s) => s.setValue);
   const toggleKeyframe = useEditor((s) => s.toggleKeyframe);
   const updateNode = useEditor((s) => s.updateNode);
