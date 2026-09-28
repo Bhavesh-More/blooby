@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useEditor } from '../core/store';
+import { useEditor, usePlayhead } from '../core/store';
 import { cssColor, hexColor, oklchToRgb, readHex, rgbToOklch } from '../core/color';
 import { appearanceSpans, valueAt } from '../core/scene';
 import { activeTimeline, CAMERA_ID, MODIFIERS, type ColorStop, type LineCap, type LineJoin, type RigNode } from '../core/types';
@@ -117,7 +117,7 @@ function HexInput({ value, onChange, label }: { value: ColorStop; onChange: (c: 
 /** Every node in the selection, batch-edited together — scale, roll, colour, nothing that only makes sense for one. */
 function MultiNodeInspector({ ids }: { ids: string[] }) {
   const project = useEditor((s) => s.project);
-  const playhead = useEditor((s) => s.playhead);
+  const playhead = usePlayhead();
   const setValue = useEditor((s) => s.setValue);
   const toggleKeyframe = useEditor((s) => s.toggleKeyframe);
   const select = useEditor((s) => s.select);
@@ -180,24 +180,25 @@ export function NodeInspector() {
         <span className="tag">{tag}</span>
       </div>
 
+      {/* Like every design tool: where it is and its colour first, then what it is made of,
+          its outline, then how it looks. Everything else is one fold down, under More. */}
+      <Collapsible title="Transform" storageKey="insp-transform">
+        <TransformSection node={node} isRoot={mascot} />
+      </Collapsible>
+      {drawsPaint && (
+        <Collapsible title="Fill" storageKey={curve ? 'insp-curve-fill' : 'insp-fill'} defaultOpen={!curve}>
+          <FillSection node={node} />
+        </Collapsible>
+      )}
       {text && (
         <>
           <Collapsible title="Text" storageKey="insp-text"><TextSection node={node} /></Collapsible>
           <Collapsible title="Layout" storageKey="insp-text-layout"><TextLayoutSection node={node} /></Collapsible>
-          <Collapsible title="Path" storageKey="insp-text-path" defaultOpen={false}><TextPathSection node={node} /></Collapsible>
         </>
       )}
       {curve && <Collapsible title="Curve" storageKey="insp-curve"><CurveSection node={node} /></Collapsible>}
       {mascot && <Collapsible title="Rig" storageKey="insp-rig"><MascotRigSection node={node} /></Collapsible>}
-      {(node.kind === 'primitive' || node.kind === 'group' || node.kind === 'svgLayer') && !curve && (
-        <Collapsible title="Role" storageKey="insp-role" defaultOpen={node.role === 'face'}><RoleSection node={node} /></Collapsible>
-      )}
-      <Collapsible title="Transform" storageKey="insp-transform">
-        <TransformSection node={node} isRoot={mascot} />
-      </Collapsible>
-      {node.kind !== 'limb' && node.kind !== 'eye' && (
-        <Collapsible title="Squish" storageKey="insp-squish" defaultOpen={mascot}><SquishSection node={node} /></Collapsible>
-      )}
+      {mascot && <Collapsible title="Squish" storageKey="insp-squish"><SquishSection node={node} /></Collapsible>}
       {node.kind === 'limb' && (
         <Collapsible title={node.limb?.type === 'leg' ? 'Leg' : 'Hand'} storageKey="insp-limb">
           <LimbSection node={node} />
@@ -209,51 +210,52 @@ export function NodeInspector() {
         </Collapsible>
       )}
       {drawsPaint && (
-        <Collapsible title="Fill" storageKey={curve ? 'insp-curve-fill' : 'insp-fill'} defaultOpen={!curve}>
-          <FillSection node={node} />
-        </Collapsible>
-      )}
-      {drawsPaint && (
         <Collapsible title="Stroke" storageKey={curve ? 'insp-curve-stroke' : 'insp-stroke'} defaultOpen={curve}>
           <StrokeSection node={node} />
         </Collapsible>
       )}
-      {node.kind !== 'group' && (
-        <Collapsible title={`Effects${node.effects?.length ? ` · ${node.effects.length}` : ''}`} storageKey="insp-effects" defaultOpen={!!node.effects?.length}>
-          <EffectsSection node={node} />
-        </Collapsible>
-      )}
-      {node.kind === 'group' && (
-        <Collapsible title="Effects" storageKey="insp-effects-g" defaultOpen={!!node.effects?.length}><EffectsSection node={node} /></Collapsible>
-      )}
-      <Collapsible title="Compositing" storageKey="insp-composite" defaultOpen={!!node.blend || !!node.mask}><CompositeSection node={node} /></Collapsible>
-      {drawsPaint && node.kind !== 'limb' && node.kind !== 'text' && (
-        <Collapsible title="Gradient" storageKey="insp-gradient" defaultOpen={!!node.gradient}><GradientSection node={node} /></Collapsible>
-      )}
-      {node.kind !== 'limb' && (
-        <Collapsible title="3D" storageKey="insp-depth" defaultOpen={!!node.depth}><DepthSection node={node} /></Collapsible>
-      )}
-      {mascot && (
-        <Collapsible title="Follow" storageKey="insp-follow" defaultOpen={!!node.parentId}>
-          <MascotFollowSection node={node} />
-        </Collapsible>
-      )}
-      {!mascot && node.kind !== 'eye' && node.kind !== 'limb' && (
-        <Collapsible title="Attachment" storageKey="insp-attach">
-          <AttachmentSection node={node} />
-        </Collapsible>
-      )}
-      {!isRoot && (
-        <Collapsible title="Appearance" storageKey="insp-appear" defaultOpen={false}>
-          <AppearanceSection node={node} />
-        </Collapsible>
-      )}
-      {text && <Collapsible title="Letters" storageKey="insp-letters" defaultOpen={false}><TextLettersSection node={node} /></Collapsible>}
-      <Collapsible title="Animation" storageKey="insp-anim" defaultOpen={false}>
-        <AnimationSection node={node} />
+      <Collapsible title="Effects" badge={node.effects?.length || undefined} storageKey={node.kind === 'group' ? 'insp-effects-g' : 'insp-effects'} defaultOpen={!!node.effects?.length}>
+        <EffectsSection node={node} />
       </Collapsible>
-      <Collapsible title="State" storageKey="insp-state" defaultOpen={false}>
-        <TweenToTarget node={node} />
+      <Collapsible title="More options" storageKey="insp-more" defaultOpen={false}
+        badge={[node.blend || node.mask ? 1 : 0, node.gradient ? 1 : 0, node.depth ? 1 : 0].reduce((a, b) => a + b, 0) || undefined}>
+        <p className="hint" style={{ margin: 0 }}>Less-used settings — each folds open on its own.</p>
+        {(node.kind === 'primitive' || node.kind === 'group' || node.kind === 'svgLayer') && !curve && (
+          <Collapsible title="Role" storageKey="insp-role" defaultOpen={node.role === 'face'}><RoleSection node={node} /></Collapsible>
+        )}
+        {!mascot && node.kind !== 'limb' && node.kind !== 'eye' && (
+          <Collapsible title="Squish" storageKey="insp-squish-more" defaultOpen={false}><SquishSection node={node} /></Collapsible>
+        )}
+        {text && <Collapsible title="Text on a path" storageKey="insp-text-path" defaultOpen={false}><TextPathSection node={node} /></Collapsible>}
+        {text && <Collapsible title="Letters" storageKey="insp-letters" defaultOpen={false}><TextLettersSection node={node} /></Collapsible>}
+        {drawsPaint && node.kind !== 'limb' && node.kind !== 'text' && (
+          <Collapsible title="Gradient" storageKey="insp-gradient" defaultOpen={!!node.gradient}><GradientSection node={node} /></Collapsible>
+        )}
+        <Collapsible title="Compositing" storageKey="insp-composite" defaultOpen={!!node.blend || !!node.mask}><CompositeSection node={node} /></Collapsible>
+        {node.kind !== 'limb' && (
+          <Collapsible title="3D" storageKey="insp-depth" defaultOpen={!!node.depth}><DepthSection node={node} /></Collapsible>
+        )}
+        {mascot && (
+          <Collapsible title="Follow another mascot" storageKey="insp-follow" defaultOpen={!!node.parentId}>
+            <MascotFollowSection node={node} />
+          </Collapsible>
+        )}
+        {!mascot && node.kind !== 'eye' && node.kind !== 'limb' && (
+          <Collapsible title="Attachment" storageKey="insp-attach" defaultOpen={false}>
+            <AttachmentSection node={node} />
+          </Collapsible>
+        )}
+        {!isRoot && (
+          <Collapsible title="When it is on screen" storageKey="insp-appear" defaultOpen={false}>
+            <AppearanceSection node={node} />
+          </Collapsible>
+        )}
+        <Collapsible title="Its keyframes" storageKey="insp-anim" defaultOpen={false}>
+          <AnimationSection node={node} />
+        </Collapsible>
+        <Collapsible title="Tween to another state" storageKey="insp-state" defaultOpen={false}>
+          <TweenToTarget node={node} />
+        </Collapsible>
       </Collapsible>
     </div>
   );
@@ -349,7 +351,7 @@ function BlobRows({ node }: { node: RigNode }) {
 function ScaleRows({ node, isRoot }: { node: RigNode; isRoot: boolean }) {
   const [linked, setLinked] = useState(() => { try { return localStorage.getItem('blooby.linkScale') !== '0'; } catch { return true; } });
   const project = useEditor((s) => s.project);
-  const playhead = useEditor((s) => s.playhead);
+  const playhead = usePlayhead();
   const applyScaleAsBase = useEditor((s) => s.applyScaleAsBase);
   const toggle = () => { const v = !linked; setLinked(v); try { localStorage.setItem('blooby.linkScale', v ? '1' : '0'); } catch { /* private mode */ } };
   const sx = valueAt(project, node.id, 'transform.scale.x', playhead) as number;
@@ -375,7 +377,7 @@ function ScaleRows({ node, isRoot }: { node: RigNode; isRoot: boolean }) {
 
 function FillSection({ node }: { node: RigNode }) {
   const project = useEditor((s) => s.project);
-  const playhead = useEditor((s) => s.playhead);
+  const playhead = usePlayhead();
   const setValue = useEditor((s) => s.setValue);
   const toggleKeyframe = useEditor((s) => s.toggleKeyframe);
   const colorNow = valueAt(project, node.id, 'color', playhead) as ColorStop;
@@ -400,7 +402,7 @@ const JOINS: LineJoin[] = ['miter', 'round', 'bevel'];
 
 function StrokeSection({ node }: { node: RigNode }) {
   const project = useEditor((s) => s.project);
-  const playhead = useEditor((s) => s.playhead);
+  const playhead = usePlayhead();
   const setValue = useEditor((s) => s.setValue);
   const toggleKeyframe = useEditor((s) => s.toggleKeyframe);
   const updateNode = useEditor((s) => s.updateNode);
@@ -505,7 +507,7 @@ function AttachmentSection({ node }: { node: RigNode }) {
  */
 function AppearanceSection({ node }: { node: RigNode }) {
   const project = useEditor((s) => s.project);
-  const playhead = useEditor((s) => s.playhead);
+  const playhead = usePlayhead();
   const setAppearance = useEditor((s) => s.setAppearance);
   const updateNode = useEditor((s) => s.updateNode);
   const tl = activeTimeline(project);
@@ -571,7 +573,7 @@ function AnimationSection({ node }: { node: RigNode }) {
  */
 function TweenToTarget({ node }: { node: RigNode }) {
   const project = useEditor((s) => s.project);
-  const playhead = useEditor((s) => s.playhead);
+  const playhead = usePlayhead();
   const tweenProperty = useEditor((s) => s.tweenProperty);
   const choices = NUMERIC_PROPS.filter((p) => PROPS[p].on === 'node' && typeof valueAt(project, node.id, p, playhead) === 'number');
   const [prop, setProp] = useState(choices.includes('transform.scale.x') ? 'transform.scale.x' : choices[0]);
@@ -615,11 +617,28 @@ const fmtVal = (v: number) => (Number.isInteger(v) ? String(v) : v.toFixed(2));
  */
 function NothingSelected() {
   const project = useEditor((s) => s.project);
+  const setTab = useEditor((s) => s.setRailTab);
+  const select = useEditor((s) => s.select);
   const c = compOf(project);
   const k = 30 / Math.max(c.width, c.height);
   return (
-    <Panel title="Inspector">
-      <p className="hint" style={{ margin: 0 }}>Select a layer on the stage or in the Layers list to edit it.</p>
+    <Panel title="Design">
+      {/* a beginner's first look at the rail: what to do next, as things to press */}
+      <div className="getting-started">
+        <strong>Nothing selected yet</strong>
+        <span>Click your mascot or any layer on the stage to change how it looks and moves.</span>
+        <div className="gs-steps">
+          <button className="gs-step" onClick={() => select([project.rig.rootId])}>
+            <Icon name="mascot" size={18} /><span><b>Select the mascot</b><small>Move, turn and squish it</small></span>
+          </button>
+          <button className="gs-step" data-tour="gs-presets" onClick={() => document.querySelector('[data-tour="rail-left"] .chips')?.scrollIntoView({ behavior: 'smooth', block: 'center' })}>
+            <Icon name="play" size={18} /><span><b>Add a preset</b><small>A ready-made animation, in one click</small></span>
+          </button>
+          <button className="gs-step" onClick={() => setTab('ai')}>
+            <Icon name="sparkle" size={18} /><span><b>Ask the copilot</b><small>Describe the motion in words</small></span>
+          </button>
+        </div>
+      </div>
       <button className="comp-summary" onClick={openComposition} title="Size, frame rate, length and backdrop">
         <span className="comp-frame-box"><span className="comp-frame" style={{ width: Math.max(6, c.width * k), height: Math.max(6, c.height * k) }} /></span>
         <span className="comp-summary-text">
@@ -640,7 +659,7 @@ function LimbSection({ node }: { node: RigNode }) {
   const project = useEditor((s) => s.project);
   const pinLimb = useEditor((s) => s.pinLimb);
   const pinLimbPoint = useEditor((s) => s.pinLimbPoint);
-  const playhead = useEditor((s) => s.playhead);
+  const playhead = usePlayhead();
   const updateNode = useEditor((s) => s.updateNode);
   const l = node.limb;
   if (!l) return null;

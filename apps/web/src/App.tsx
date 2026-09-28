@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Navigate, Outlet, Route, Routes, useLocation, useNavigate, useParams } from 'react-router';
 import {
-  Avatar, EmptyState, Shell, Splashscreen, WhatsNewButton, auth, authApi, configureWhatsNew, startTour, startTourWhenReady,
+  Avatar, EmptyState, Icon, LegalPage, Shell, Splashscreen, WhatsNewButton, auth, authApi, configureWhatsNew, startTour, startTourWhenReady,
   usePageViews, useSession,
   type DriveStep, type NavGroup, type SessionUser,
 } from '@blooby/studio';
@@ -14,9 +14,9 @@ import { AiClients } from './features/connect/AiClients';
 
 const NAV: NavGroup[] = [
   { items: [
-    { id: '/projects', label: 'Projects', glyph: '◳' },
-    { id: '/library', label: 'Library', glyph: '◈' },
-    { id: '/ai', label: 'AI apps', glyph: '✳' },
+    { id: '/projects', label: 'Projects', glyph: '◳', icon: 'grid4' },
+    { id: '/library', label: 'Library', glyph: '◈', icon: 'book' },
+    { id: '/ai', label: 'AI apps', glyph: '✳', icon: 'sparkle' },
   ] },
 ];
 
@@ -71,6 +71,9 @@ export function App() {
         <Route path="/login" element={user ? <BackToWhereYouWere /> : <AuthScreen />} />
         {/* an AI app's authorize step lands here; it signs you in itself, so the query survives */}
         <Route path="/connect" element={<Connect user={user} />} />
+        {/* public: linked from the sign-in screen, so they must open without an account */}
+        <Route path="/privacy" element={<LegalPage doc="privacy" />} />
+        <Route path="/terms" element={<LegalPage doc="terms" />} />
 
         <Route element={<RequireAuth user={user} />}>
           {/* the editor is full-bleed: it deliberately sits outside the shell layout */}
@@ -126,8 +129,8 @@ function AppShell({ user, tourReady }: { user: SessionUser; tourReady: boolean }
           <WhatsNewButton surface="dashboard" autoOpen={tourReady} />
           <Avatar name={user.name ?? user.email} url={user.avatarUrl} size={24} />
           <span className="who-name" title={user.email ?? undefined}>{user.name ?? user.email ?? 'Signed in'}</span>
-          <button className="btn ghost sm" title="Replay the tour"
-            onClick={() => startTour('web', WEB_TOUR, { force: true })}>?</button>
+          <button className="btn ghost icon sm" title="Replay the tour" aria-label="Replay the tour"
+            onClick={() => startTour('web', WEB_TOUR, { force: true })}><Icon name="help" size={16} /></button>
           <button className="btn ghost sm" onClick={() => void auth.signOut()}>Sign out</button>
         </div>
       }

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Dialog } from './index';
 import { isTourRunning, startTour } from './tour';
 import { LATEST_RELEASE, RELEASES, markWhatsNewSeen, unseenReleases, useWhatsNewSeen, type Release, type Surface } from '../whatsNew';
+import { Icon } from '../ui/bits';
 
 /**
  * The "What's new" button and its panel — the same one in the editor and on the dashboard.
@@ -38,7 +39,7 @@ export function WhatsNewButton({ surface, autoOpen = true }: { surface: Surface;
     <>
       <button className="btn ghost sm whatsnew-btn" onClick={() => setOpen(true)} aria-haspopup="dialog"
         title={unseen.length ? "What's new — there is something you have not seen" : "What's new"}>
-        What’s new{unseen.length > 0 && <span className="whatsnew-dot" aria-label="unseen" />}
+        <Icon name="sparkle" size={15} />What’s new{unseen.length > 0 && <span className="whatsnew-dot" aria-label="unseen" />}
       </button>
       {open && <WhatsNewPanel surface={surface} unseen={unseen} onClose={close} />}
     </>

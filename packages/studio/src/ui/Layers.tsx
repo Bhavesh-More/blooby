@@ -35,7 +35,6 @@ export function Layers() {
   const duplicateLayer = useEditor((s) => s.duplicateLayer);
   const groupLayers = useEditor((s) => s.groupLayers);
   const ungroupLayer = useEditor((s) => s.ungroupLayer);
-  const playhead = useEditor((s) => s.playhead);
   const file = useRef<HTMLInputElement>(null);
   const [tray, setTray] = useState<Tray>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
@@ -92,7 +91,7 @@ export function Layers() {
   const importText = (text: string, name?: string, label = 'That'): boolean => {
     const made = makeSvgLayer(text, name);
     if (!made) { setNote(`${label} is not an SVG this can read.`); return false; }
-    addLayer(made.node, { appearAt: playhead });
+    addLayer(made.node, { appearAt: useEditor.getState().playhead });
     setNote(made.warnings.length ? `Imported ${made.node.name} — not carried over: ${made.warnings.join('; ')}` : null);
     return true;
   };

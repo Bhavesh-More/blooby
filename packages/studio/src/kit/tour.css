@@ -1,55 +1,60 @@
-/* driver.js, restyled to DESIGN.md — the default theme is rounded-blue and would be the
-   only chromatic thing in an otherwise achromatic product. */
+/* driver.js, in the app's own Material 3 dress: a large-radius sheet on a spring, the
+   brand apricot for the step forward, and the highlighted control ringed in it too. */
 .driver-popover.blooby-tour {
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: var(--r-card);
-  box-shadow: var(--shadow);
-  padding: 20px;
-  max-width: 320px;
+  background: var(--surface-low);
+  border: 0;
+  border-radius: var(--r-xl);
+  box-shadow: var(--shadow-3);
+  padding: 20px 22px 18px;
+  max-width: 340px;
   font-family: var(--ui);
+  animation: dialog-in var(--t) var(--spring);
 }
 .driver-popover.blooby-tour .driver-popover-title {
-  font-family: var(--display); font-size: 18px; font-weight: 600;
-  color: var(--ink); line-height: 1.56; margin-bottom: 4px;
+  font-family: var(--display); font-size: 19px; font-weight: 600;
+  color: var(--ink); line-height: 1.4; margin-bottom: 4px;
 }
 .driver-popover.blooby-tour .driver-popover-description {
-  font-size: 14px; line-height: 1.43; color: var(--muted);
+  font-size: 14px; line-height: 1.5; color: var(--on-surface-variant);
 }
 .driver-popover.blooby-tour .driver-popover-progress-text {
   font-family: var(--mono); font-size: 12px; color: var(--muted);
 }
 .driver-popover.blooby-tour .driver-popover-navigation-btns button {
-  background: var(--field); color: var(--ink); border: 0;
-  border-radius: var(--r-btn); padding: 8px 16px;
-  font: 500 14px var(--ui); text-shadow: none; cursor: pointer;
+  background: var(--surface-container); color: var(--ink); border: 0;
+  border-radius: var(--r-full); padding: 9px 18px;
+  font: 600 13.5px var(--ui); text-shadow: none; cursor: pointer;
+  transition: border-radius var(--t-fast) var(--spring-fast), transform var(--t-fast) var(--spring-fast);
 }
+.driver-popover.blooby-tour .driver-popover-navigation-btns button:active { border-radius: var(--r-sm); transform: scale(.96); }
 .driver-popover.blooby-tour .driver-popover-navigation-btns button:last-child {
-  background: var(--ink); color: #fafafa;
+  background: var(--primary); color: var(--on-primary);
 }
-.driver-popover.blooby-tour .driver-popover-close-btn { color: var(--muted); font-size: 18px; }
-.driver-popover.blooby-tour .driver-popover-arrow { border-color: var(--panel); }
+.driver-popover.blooby-tour .driver-popover-close-btn { color: var(--muted); font-size: 20px; }
+.driver-popover.blooby-tour .driver-popover-arrow { border-color: var(--surface-low); }
+.driver-active-element { outline: 3px solid var(--accent) !important; outline-offset: 3px; border-radius: 12px; }
 
-/* --- tour picker -------------------------------------------------------- */
+/* --- tour picker ---------------------------------------------------------- */
 .tourmenu { position: relative; display: inline-flex; }
 
 .tourmenu-pop {
-  position: absolute; top: calc(100% + 6px); right: 0; z-index: 60; width: 288px;
-  padding: 6px; background: var(--panel); border: 1px solid var(--line);
-  border-radius: var(--r-card); box-shadow: var(--shadow); text-align: left;
+  position: absolute; top: calc(100% + 6px); right: 0; z-index: 60; width: 300px;
+  padding: 6px; background: var(--surface-low); border: 0;
+  border-radius: var(--r-lg); box-shadow: var(--shadow-3); text-align: left;
+  transform-origin: top right; animation: menu-in var(--t) var(--spring);
 }
 .tourmenu-head {
-  padding: 8px 10px 6px; font-size: 12px; letter-spacing: .6px;
-  text-transform: uppercase; color: var(--muted);
+  padding: 10px 12px 6px; font-size: 12px; font-weight: 600; letter-spacing: .02em; color: var(--muted);
 }
 .tourmenu-item {
-  display: block; width: 100%; padding: 8px 10px; border: 0; border-radius: var(--r-nested, 10px);
+  display: block; width: 100%; padding: 10px 12px; border: 0; border-radius: var(--r-md);
   background: none; text-align: left; cursor: pointer; font: inherit; color: inherit; text-decoration: none; box-sizing: border-box;
+  transition: background-color var(--t-fx) var(--fx), border-radius var(--t-fast) var(--spring-fast);
 }
-.tourmenu-item:hover { background: var(--field); }
+.tourmenu-item:hover { background: var(--hover); border-radius: var(--r-lg-inc); }
 .tourmenu-label {
   display: flex; align-items: center; gap: 6px;
-  font-size: 14px; font-weight: 500; color: var(--ink);
+  font-size: 14px; font-weight: 600; color: var(--ink);
 }
-.tourmenu-blurb { display: block; font-size: 12px; line-height: 1.33; color: var(--muted); margin-top: 2px; }
-.tourmenu-new { width: 6px; height: 6px; border-radius: 50%; background: var(--ink); flex: none; }
+.tourmenu-blurb { display: block; font-size: 12px; line-height: 1.4; color: var(--muted); margin-top: 2px; }
+.tourmenu-new { width: 8px; height: 8px; border-radius: 50%; background: var(--tertiary); flex: none; }

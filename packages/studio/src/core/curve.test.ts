@@ -1,4 +1,4 @@
-import { it } from 'vitest';
+import { it, vi } from 'vitest';
 import { check } from './testkit';
 import {
   bakeHandles, curveFromPath, curveToPath, insertPoint, lineCurve, moveAnchor, moveHandle, nearestOnCurve, removePoint, reverseCurve,
@@ -123,8 +123,12 @@ const c: Curve = { points: wave, closed: false };
   it('named "Curve 1", selected', check(p.rig.nodes[id].name === 'Curve 1' && ed().selection[0] === id));
 
   const before = ed().project.rig.nodes[id].shapePath;
+  // one gesture: the clock is held still, so a busy machine (the whole suite in parallel) can't
+  // stretch the gap between two pointer moves past the store's 700ms coalescing window
+  const clock = vi.spyOn(Date, 'now').mockReturnValue(Date.now());
   ed().editCurve(id, (c) => moveAnchor(c, 1, { x: 0, y: -0.4 }), 'drag');
   ed().editCurve(id, (c) => moveAnchor(c, 1, { x: 0, y: -0.45 }), 'drag');
+  clock.mockRestore();
   it('dragging a point reshapes the curve', check(ed().project.rig.nodes[id].shapePath !== before && Math.abs(pathAnchors(ed().project.rig.nodes[id].shapePath!)[1].y + 0.45) < 1e-6));
   ed().undo();
   it('and the whole drag is one undo step', check(ed().project.rig.nodes[id].shapePath === before));

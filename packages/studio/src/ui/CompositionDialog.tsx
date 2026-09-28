@@ -87,7 +87,7 @@ export function CompositionDialog() {
 
         <p className="modal-hint">A wider canvas gives the mascots room — nothing stretches, and everything stays where it is relative to the centre. Every export uses this size.</p>
         <footer className="modal-foot">
-          <button className="btn sm primary" onClick={() => setOpen(false)}>Done</button>
+          <button className="btn primary" onClick={() => setOpen(false)}>Done</button>
         </footer>
       </div>
     </div>

@@ -126,7 +126,7 @@ export function StateGraph({ selectedId, onSelect, disabled = false }: { selecte
         <defs>
           {(['', '-live', '-sel'] as const).map((k) => (
             <marker key={k} id={`sm-arrow${k}`} viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-              <path d="M0 0 L8 4 L0 8 z" fill={k === '-live' ? 'var(--signal)' : k === '-sel' ? 'var(--ink)' : 'var(--muted)'} />
+              <path d="M0 0 L8 4 L0 8 z" fill={k === '-live' ? 'var(--accent)' : k === '-sel' ? 'var(--primary-text)' : 'var(--muted)'} />
             </marker>
           ))}
         </defs>
@@ -134,7 +134,7 @@ export function StateGraph({ selectedId, onSelect, disabled = false }: { selecte
         {valid.map((t) => {
           const selected = t.id === selectedId;
           const holds = firing ? (firing.id === t.id || firing.id.startsWith(`${t.id}@`)) : false;
-          const stroke = selected ? 'var(--ink)' : holds ? 'var(--signal)' : 'var(--muted)';
+          const stroke = selected ? 'var(--primary-text)' : holds ? 'var(--accent)' : 'var(--muted)';
           const a = port(t.from), c = centre(t.to), tp = pos(t.to);
           // into the target's nearer side, so a node moved left of its source still reads
           const into = a.x <= c.x ? { x: tp.x - 2, y: c.y } : { x: tp.x + NODE.w + 2, y: c.y };
@@ -161,7 +161,7 @@ export function StateGraph({ selectedId, onSelect, disabled = false }: { selecte
 
         {wire && (() => {
           const a = port(wire.from);
-          return <path d={`M ${a.x} ${a.y} L ${wire.x} ${wire.y}`} stroke="var(--ink)" strokeWidth={1.4}
+          return <path d={`M ${a.x} ${a.y} L ${wire.x} ${wire.y}`} stroke="var(--accent)" strokeWidth={1.6}
             strokeDasharray="4 3" fill="none" pointerEvents="none" markerEnd="url(#sm-arrow-sel)" />;
         })()}
 
@@ -175,7 +175,7 @@ export function StateGraph({ selectedId, onSelect, disabled = false }: { selecte
                 <text x={p.x + ANY.w / 2 - 4} y={p.y + ANY.h / 2 + 3.5} textAnchor="middle" fontSize="10" fontWeight={600} fill="var(--ink-2)">Any state</text>
                 <title>Rules start here: whatever state is current, when the condition holds, go to the target. Drag to move.</title>
               </g>
-              <circle className="sm-port" cx={p.x + ANY.w} cy={p.y + ANY.h / 2} r={5.5} fill="var(--ink)"
+              <circle className="sm-port" cx={p.x + ANY.w} cy={p.y + ANY.h / 2} r={5.5} fill="var(--accent)"
                 onPointerDown={startWire(ANY_STATE)} style={{ cursor: disabled ? 'not-allowed' : 'crosshair' }} opacity={disabled ? 0.35 : 1}>
                 <title>Drag onto a state to add a rule into it</title>
               </circle>
@@ -191,10 +191,10 @@ export function StateGraph({ selectedId, onSelect, disabled = false }: { selecte
           return (
             <g key={tl.id}>
               <g onPointerDown={startMove(tl.id)} style={{ cursor: 'grab' }}>
-                <rect x={p.x} y={p.y} width={NODE.w} height={NODE.h} rx={8}
-                  fill={active ? 'var(--signal-soft)' : 'var(--panel)'} stroke={active ? 'var(--ink)' : 'var(--line)'} strokeWidth={active ? 1.5 : 1} />
+                <rect x={p.x} y={p.y} width={NODE.w} height={NODE.h} rx={active ? 16 : 12}
+                  fill={active ? 'var(--signal-soft)' : 'var(--panel)'} stroke={active ? 'var(--accent)' : 'var(--line)'} strokeWidth={active ? 2 : 1} />
                 <foreignObject x={p.x + 5} y={p.y + 5} width={38} height={38} pointerEvents="none">
-                  <div style={{ width: 38, height: 38, borderRadius: 6, background: 'var(--field)', overflow: 'hidden' }}>
+                  <div style={{ width: 38, height: 38, borderRadius: 10, background: '#17161b', overflow: 'hidden' }}>
                     {scene.length > 0 && <MascotThumb scene={scene} view={compOf(project)} pad={6} />}
                   </div>
                 </foreignObject>
@@ -206,7 +206,7 @@ export function StateGraph({ selectedId, onSelect, disabled = false }: { selecte
                 </text>
                 <title>{`${tl.name}${initial ? ' — the machine starts here' : ''}. Click to show it on the stage; drag to move it.`}</title>
               </g>
-              <circle className="sm-port" cx={p.x + NODE.w} cy={p.y + NODE.h / 2} r={4.5} fill="var(--muted)"
+              <circle className="sm-port" cx={p.x + NODE.w} cy={p.y + NODE.h / 2} r={4.5} fill="var(--accent)"
                 onPointerDown={startWire(tl.id)} style={{ cursor: disabled ? 'not-allowed' : 'crosshair' }} opacity={disabled ? 0.35 : 1}>
                 <title>{`Drag onto another state for a transition out of ${tl.name} only`}</title>
               </circle>

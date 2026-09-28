@@ -124,7 +124,7 @@ export function PresetPreview({ project, preset, onAdd, onEdit, onRename, onDele
           </div>
           <span className="spacer" />
           <button className="btn sm" onClick={onClose}>Close</button>
-          <button className="btn sm primary" onClick={onAdd}>Add to project</button>
+          <button className="btn primary" onClick={onAdd}>Add to project</button>
         </div>
 
         {(onRename || onEdit || onDelete) && (

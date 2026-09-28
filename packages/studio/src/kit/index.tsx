@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { GITHUB_URL, GithubMark } from './TourMenu';
+import { Icon, type IconName } from '../ui/bits';
+import { Tooltips } from '../ui/Tooltips';
 import markSrc from './blooby-mark.png';
 
 /**
@@ -12,7 +14,7 @@ import markSrc from './blooby-mark.png';
 
 /* --- shell -------------------------------------------------------------- */
 
-export interface NavItem { id: string; label: string; glyph: string; count?: number }
+export interface NavItem { id: string; label: string; glyph: string; count?: number; icon?: IconName }
 export interface NavGroup { title?: string; items: NavItem[] }
 
 /**
@@ -77,7 +79,7 @@ export function Shell({ nav, active, onNavigate, footer, brand, children }: {
               <button key={item.id} className="side-item" aria-current={active === item.id}
                 data-tour={item.id} title={item.label}
                 onClick={() => { onNavigate(item.id); setOpen(false); }}>
-                <span className="side-glyph" aria-hidden>{item.glyph}</span>
+                <span className="side-glyph" aria-hidden>{item.icon ? <Icon name={item.icon} size={20} /> : item.glyph}</span>
                 <span className="side-label">{item.label}</span>
                 {item.count !== undefined && item.count > 0 && <span className="side-count">{item.count}</span>}
               </button>
@@ -90,7 +92,9 @@ export function Shell({ nav, active, onNavigate, footer, brand, children }: {
           <span className="side-label">View on GitHub</span>
         </a>
         {footer && <div className="side-foot">{footer}</div>}
+        <LegalLinks />
       </aside>
+      <Tooltips />
 
       <main className="main">
         <button className="side-trigger" onClick={() => setOpen((v) => !v)} aria-label="Toggle navigation">☰</button>
@@ -112,6 +116,14 @@ export function PageHeader({ title, subtitle, children }: { title: string; subti
     </header>
   );
 }
+
+/** The small print — under the sign-in card, in the sidebar, in the editor's menu. */
+export const LegalLinks = () => (
+  <nav className="legal-links" aria-label="Legal">
+    <a href="/privacy">Privacy</a>
+    <a href="/terms">Terms</a>
+  </nav>
+);
 
 /* --- data display ------------------------------------------------------- */
 
@@ -136,7 +148,7 @@ export function SearchBar({ value, onChange, placeholder = 'Search' }: {
 }) {
   return (
     <div className="searchbar">
-      <span aria-hidden style={{ opacity: .5 }}>⌕</span>
+      <span aria-hidden style={{ color: 'var(--muted)', display: 'grid' }}><Icon name="search" size={18} /></span>
       <input value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} aria-label={placeholder} />
     </div>
   );
@@ -156,7 +168,7 @@ export function ChipBar<T extends string>({ options, value, onChange }: {
 
 /* --- people and pages --------------------------------------------------- */
 
-/** A person's picture, or their initial when there is none. Monochrome, per DESIGN.md. */
+/** A person's picture, or their initial on the primary container when there is none. */
 export function Avatar({ name, url, size = 28 }: { name?: string | null; url?: string | null; size?: number }) {
   const style = { width: size, height: size, fontSize: Math.round(size * 0.43) };
   if (url) return <img className="avatar" style={style} src={url} alt="" referrerPolicy="no-referrer" />;

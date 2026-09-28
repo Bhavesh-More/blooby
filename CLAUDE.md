@@ -154,8 +154,15 @@ insights are under `/community`; trending is `utils/trending.ts`.
 generates classes found under the `@source` directive at the top of that file — importing
 `tailwindcss/utilities.css` directly (as this repo does) disables automatic detection, so
 a missing `@source` silently produces *no CSS at all* for a utility class. Prefer the
-existing vocabulary: `.panel`, `.row`, `.btn`, `.prop-label`, `.prop-num`, `.txt`,
-`.hint`, `.seg`, `.tag`, `.divider`, `.fold`.
+existing vocabulary: `.panel`, `.row`, `.btn` (`.primary`, `.tonal`, `.ghost`, `.sm`, `.icon`),
+`.prop-label`, `.prop-num`, `.txt`, `.hint`, `.seg`, `.tag`, `.divider`, `.fold`. Motion uses the
+spring tokens (`--spring`, `--spring-fast`, `--fx`) and must survive the reduced-motion rule at the
+end of index.css. Every control gets a `title` — `ui/Tooltips.tsx` shows it as the M3 tooltip.
+
+**Panels don't subscribe to the raw playhead.** `usePlayhead()` (core/store.ts) is exact while
+paused and steps 8×/s while playing; handlers read `useEditor.getState().playhead`. Only the stage
+and the timeline's own playhead pieces follow it every frame — a panel that re-renders at 60fps is
+what made big projects stutter.
 
 **Tests sit beside the module** as `*.test.ts` and are written as a script of assertions,
 not `describe`/`it` blocks with setup. `core/testkit.ts` exports `check(value, detail)`,
@@ -188,7 +195,8 @@ when signed out); everything newer is shown. Never edit an old release's version
 
 - `ASSUMPTIONS.md` — what is verified, what is guessed, and what is known-unverified.
   Anything surprising in the codebase is usually explained here.
-- `DESIGN.md` — the visual language. Monochrome; colour only for destructive states.
+- `DESIGN.md` — the visual language: Material 3 Expressive in brand apricot #FBBF79 — colour
+  roles, the ten-step corner scale, spring motion. Use the role tokens, never a new hex.
 - `ANIMATION.md` — where the copilot's numbers come from.
 - `COPILOT.md` — how to work on the agent.
 

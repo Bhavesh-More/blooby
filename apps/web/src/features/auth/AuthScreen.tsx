@@ -108,6 +108,9 @@ export function AuthScreen() {
           {mode === 'signup' && <>Already have an account? <button onClick={() => go('signin')}>Sign in</button></>}
           {mode === 'forgot' && <button onClick={() => go('signin')}>Back to sign in</button>}
         </p>
+        <p className="auth-legal">
+          By continuing you agree to the <a href="/terms">Terms of use</a> and <a href="/privacy">Privacy policy</a>.
+        </p>
       </div>
     </main>
   );

@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { useEditor } from '../core/store';
+import { useEditor, usePlayhead } from '../core/store';
 import { naturalShape, primitivePath, SHAPE_DIALS, type ShapeParams } from '../core/path';
 import { libraryOutline, shapeById, shapeIdOf, SHAPE_LIBRARY } from '../core/emitters';
 import { looksLikeSvg, svgOutline } from '../core/svg';
@@ -33,7 +33,7 @@ const DIAL: Record<keyof ShapeParams, { label: string; min: number; max: number;
 
 export function ShapeEditor({ node }: { node: RigNode }) {
   const project = useEditor((s) => s.project);
-  const playhead = useEditor((s) => s.playhead);
+  const playhead = usePlayhead();
   const setValue = useEditor((s) => s.setValue);
   const updateNode = useEditor((s) => s.updateNode);
   const addKeyframeNow = useEditor((s) => s.addKeyframeNow);

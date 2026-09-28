@@ -26,9 +26,25 @@ type Seg = {
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const dist = (a: Vec2, b: Vec2) => Math.hypot(b.x - a.x, b.y - a.y);
 
-/** Parses the subset this app writes and imports: M L H V C S Q T A Z. */
+/**
+ * Parsed paths by their string. A frame re-reads the same outlines (every svg layer, every
+ * shape) and parsing was a fifth of a frame; a string is immutable, so its parse can't go
+ * stale. Callers never mutate a Seg (movePathAnchor copies first) — keep it that way.
+ * ponytail: cleared whole at 2000 entries; an LRU if morphs ever churn through more.
+ */
+const parsed = new Map<string, Seg[]>();
 function segments(d: string): Seg[] {
   if (typeof d !== 'string') return [];
+  let got = parsed.get(d);
+  if (!got) {
+    if (parsed.size >= 2000) parsed.clear();
+    parsed.set(d, got = parse(d));
+  }
+  return got;
+}
+
+/** Parses the subset this app writes and imports: M L H V C S Q T A Z. */
+function parse(d: string): Seg[] {
   const tokens = d.match(/[a-zA-Z]|-?\d*\.?\d+(?:e[-+]?\d+)?/gi) ?? [];
   const segs: Seg[] = [];
   let opensSubpath = true;

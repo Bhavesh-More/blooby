@@ -14,7 +14,7 @@ import { mascotLabel, mascotOf, mascotsOf } from '../core/mascot';
 import { textName } from '../core/layers';
 import { GraphEditor } from './GraphEditor';
 import { CurveEditor } from './CurveEditor';
-import { NumberField, useDismiss } from './bits';
+import { Icon, NumberField, useDismiss } from './bits';
 
 const FPS_OPTIONS = [12, 15, 24, 25, 30, 50, 60];
 
@@ -37,7 +37,10 @@ const KEYS_MARK = 'blooby-keyframes:';
 export function Timeline({ onOpenEffects }: { onOpenEffects?: () => void } = {}) {
   const project = useEditor((s) => s.project);
   const tl = activeTimeline(project);
-  const playhead = useEditor((s) => s.playhead);
+  // no playhead subscription here: this component is every lane and key, and re-rendering it
+  // each frame of playback was most of what made a busy project stutter. The few things that
+  // follow the playhead are their own small components below; handlers read it when they run.
+  const playheadNow = () => useEditor.getState().playhead;
   const setPlayhead = useEditor((s) => s.setPlayhead);
   const playing = useEditor((s) => s.playing);
   const setPlaying = useEditor((s) => s.setPlaying);
@@ -253,7 +256,7 @@ export function Timeline({ onOpenEffects }: { onOpenEffects?: () => void } = {})
   );
 
   const goto = (dir: -1 | 1) => {
-    const t = Math.round(playhead);
+    const t = Math.round(playheadNow());
     const next = dir < 0 ? [...jumps].reverse().find((k) => k < t - 1) : jumps.find((k) => k > t + 1);
     setPlayhead(next ?? (dir < 0 ? 0 : duration));
   };
@@ -421,9 +424,9 @@ export function Timeline({ onOpenEffects }: { onOpenEffects?: () => void } = {})
   // the range as a bar you drag by either end or by the middle.
   const appearNode = selection.length === 1 && selection[0] !== project.rig.rootId ? project.rig.nodes[selection[0]] : undefined;
   const appearSpans = appearNode ? appearanceSpans(tl, appearNode.id) : [];
-  const appearSnaps = [...jumps, playhead, ...starts, duration];
   const dragAppear = (entryId: string, grab: 'a' | 'b' | 'both', from: number, to: number) => (down: React.PointerEvent) => {
     if (!appearNode) return;
+    const appearSnaps = [...jumps, playheadNow(), ...starts, duration];
     down.preventDefault();
     down.stopPropagation();
     const x0 = down.clientX;
@@ -445,21 +448,23 @@ export function Timeline({ onOpenEffects }: { onOpenEffects?: () => void } = {})
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
   };
-  const activeBlock = starts.findIndex((s, i) => playhead >= s && playhead < s + tl.blocks[i].durationMs);
+  // an index, so this re-renders when the playhead crosses into another clip, not every frame
+  const activeBlock = useEditor((s) => starts.findIndex((st, i) => s.playhead >= st && s.playhead < st + tl.blocks[i].durationMs));
 
   return (
     <div className="timeline" ref={rootRef}>
       <div className="transport">
-        <button className="btn icon" title="Previous keyframe (,)" onClick={() => goto(-1)}>‹</button>
-        <button className="btn icon" title={playing ? 'Pause (space)' : 'Play (space)'} onClick={() => setPlaying(!playing)}>
-          {playing ? '❙❙' : '▶'}
+        <button className="btn ghost icon" title="Previous keyframe (,)" aria-label="Previous keyframe" onClick={() => goto(-1)}><Icon name="prev" size={15} /></button>
+        {/* the one big control: round to play, squaring off while it plays — M3's shape morph */}
+        <button className="play-fab" data-playing={playing} title={playing ? 'Pause (space)' : 'Play (space)'} aria-label={playing ? 'Pause' : 'Play'}
+          onClick={() => setPlaying(!playing)}>
+          <Icon name={playing ? 'pause' : 'play'} size={18} />
         </button>
-        <button className="btn icon" title="Next keyframe (.)" onClick={() => goto(1)}>›</button>
-        <button className="btn sm" data-tour="loop" aria-pressed={loop} title="Loop playback" onClick={() => setLoop(!loop)}>Loop</button>
-        <span className="tc">{(playhead / 1000).toFixed(2)}<span className="dim">s / {(duration / 1000).toFixed(2)}s</span></span>
-        <span className="tc dim">f{Math.round((playhead / 1000) * project.fps)}</span>
-        <button className="btn sm rec" aria-pressed={autoKey} title="Record every change as a keyframe" onClick={toggleAutoKey}>
-          ● Auto-key
+        <button className="btn ghost icon" title="Next keyframe (.)" aria-label="Next keyframe" onClick={() => goto(1)}><Icon name="next" size={15} /></button>
+        <button className="btn ghost sm" data-tour="loop" aria-pressed={loop} title="Loop playback" onClick={() => setLoop(!loop)}><Icon name="loop" size={14} />Loop</button>
+        <Timecode duration={duration} fps={project.fps} />
+        <button className="btn ghost sm rec" aria-pressed={autoKey} title="Record every change as a keyframe" onClick={toggleAutoKey}>
+          <span className="rec-dot" aria-hidden />Auto-key
         </button>
         <span className="spacer" />
         {selKf && (
@@ -567,7 +572,6 @@ export function Timeline({ onOpenEffects }: { onOpenEffects?: () => void } = {})
           {!inLane.length && (mascots.length > 1 ? `No clips for ${mascotLabel(project.rig, project.rig.nodes[lane || project.rig.rootId])} yet — drag a preset here, or click one.` : 'Drag a preset here, or click one to append it.')}
           {inLane.map(({ b, i }, li) => {
             const start = starts[i];
-            const within = playhead >= start && playhead < start + b.durationMs;
             const color = clipColor(project, b);
             return (
               <Fragment key={b.id}>
@@ -590,11 +594,11 @@ export function Timeline({ onOpenEffects }: { onOpenEffects?: () => void } = {})
                   selectBlock(selectedBlockId === b.id ? null : b.id);
                 }}
                 onDoubleClick={() => { setPlayhead(start); selectBlock(b.id); setIsolatedBlockId(b.id); }}>
-                {within && <span className="tick" style={{ left: `${((playhead - start) / b.durationMs) * 100}%` }} />}
+                <BlockTick start={start} span={b.durationMs} />
                 <button className="x" title="Remove block" onClick={(e) => { e.stopPropagation(); removeBlock(b.id); }}>✕</button>
                 <span className="block-color-wrap" title="Clip accent color — shows in the strip, track lanes and graph"
                   onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
-                  <HexColorPicker label="Clip accent" value={color ?? '#8c8577'} onChange={(hex) => setBlockColor(b.id, hex)} />
+                  <HexColorPicker label="Clip accent" value={color ?? '#FBBF79'} onChange={(hex) => setBlockColor(b.id, hex)} />
                 </span>
                 <MascotThumb className="thumb" scene={thumbs[i]} view={compOf(project)} />
                 <span style={{ font: '600 10.5px var(--ui)', width: '100%', textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.name}</span>
@@ -750,11 +754,8 @@ export function Timeline({ onOpenEffects }: { onOpenEffects?: () => void } = {})
                         <span className="appear-grip b" onPointerDown={dragAppear(entry.id, 'b', from, to)} />
                       </div>
                     )) : (
-                      <button className="appear-add" style={{ left: playhead * pxPerMs }}
-                        title="Always on screen. Click to make it appear from the playhead to the end."
-                        onClick={() => setAppearance(appearNode.id, { startMs: Math.round(playhead), endMs: Math.round(duration) })}>
-                        always · set range from here
-                      </button>
+                      <AppearAdd pxPerMs={pxPerMs}
+                        onSet={(at) => setAppearance(appearNode.id, { startMs: Math.round(at), endMs: Math.round(duration) })} />
                     )}
                   </div>
                 )}
@@ -801,7 +802,7 @@ export function Timeline({ onOpenEffects }: { onOpenEffects?: () => void } = {})
                               // RELATIVE to where it was grabbed — a key grabbed by its edge must not
                               // jump so its centre sits under the pointer
                               const wanted = d.anchorStartTime + (e.clientX - r.left) / pxPerMs - d.grabMs;
-                              const snap = [...jumps, playhead].find((j) => Math.abs(j - wanted) < 6 / pxPerMs && Math.abs(j - d.anchorStartTime) > 0.5);
+                              const snap = [...jumps, playheadNow()].find((j) => Math.abs(j - wanted) < 6 / pxPerMs && Math.abs(j - d.anchorStartTime) > 0.5);
                               const delta = (snap ?? wanted) - d.anchorStartTime;
                               if (d.keys.length > 1) moveKeyframes(d.keys.map((x) => ({ trackId: x.trackId, kfId: x.kfId, time: x.startTime + delta })));
                               else moveKeyframe(d.keys[0].trackId, d.keys[0].kfId, d.keys[0].startTime + delta);
@@ -822,7 +823,7 @@ export function Timeline({ onOpenEffects }: { onOpenEffects?: () => void } = {})
                     </div>
                   );
                 })}
-                <div className="playhead" style={{ left: playhead * pxPerMs }} />
+                <PlayheadLine pxPerMs={pxPerMs} />
                 <div className="dur-end" style={{ left: duration * pxPerMs }} title="Drag to change the timeline's total duration"
                   onPointerDown={(e) => {
                     e.stopPropagation();
@@ -847,6 +848,39 @@ export function Timeline({ onOpenEffects }: { onOpenEffects?: () => void } = {})
 }
 
 /** Seconds in, milliseconds out — only on Enter or blur, so typing "1." works. */
+/* The parts of the timeline that follow the playhead, each subscribed on its own. */
+function Timecode({ duration, fps }: { duration: number; fps: number }) {
+  const playhead = useEditor((s) => s.playhead);
+  return (
+    <>
+      <span className="tc">{(playhead / 1000).toFixed(2)}<span className="dim">s / {(duration / 1000).toFixed(2)}s</span></span>
+      <span className="tc dim">f{Math.round((playhead / 1000) * fps)}</span>
+    </>
+  );
+}
+
+function PlayheadLine({ pxPerMs }: { pxPerMs: number }) {
+  const at = useEditor((s) => s.playhead);
+  return <div className="playhead" style={{ transform: `translateX(${at * pxPerMs}px)` }} />;
+}
+
+/** where the playhead is inside this clip's card — null (and no re-render) while it is elsewhere */
+function BlockTick({ start, span }: { start: number; span: number }) {
+  const f = useEditor((s) => (s.playhead >= start && s.playhead < start + span ? (s.playhead - start) / span : null));
+  return f === null ? null : <span className="tick" style={{ left: `${f * 100}%` }} />;
+}
+
+function AppearAdd({ pxPerMs, onSet }: { pxPerMs: number; onSet: (at: number) => void }) {
+  const at = useEditor((s) => s.playhead);
+  return (
+    <button className="appear-add" style={{ left: at * pxPerMs }}
+      title="Always on screen. Click to make it appear from the playhead to the end."
+      onClick={() => onSet(at)}>
+      always · set range from here
+    </button>
+  );
+}
+
 function DurInput({ ms, label, locked, onCommit }: { ms: number; label: string; locked: boolean; onCommit: (sec: number) => void }) {
   const [draft, setDraft] = useState<string | null>(null);
   return (

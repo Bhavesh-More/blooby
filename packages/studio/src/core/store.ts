@@ -1738,3 +1738,13 @@ export function setEasingIn(track: Track, kfId: string, easing: EasingCurve): vo
   }
   track.keyframes.sort((x, y) => x.time - y.time);
 }
+
+/**
+ * The playhead as a panel should see it: exact while paused or scrubbing, stepped to an
+ * eighth of a second while playing. Nobody reads a column of numbers at 60fps, and
+ * re-rendering every panel at that rate was what made a busy project stutter. The stage
+ * and the timeline's own playhead line still read it live.
+ */
+export const panelTime = (s: { playing: boolean; playhead: number }) =>
+  s.playing ? Math.floor(s.playhead / 125) * 125 : s.playhead;
+export const usePlayhead = () => useEditor(panelTime);

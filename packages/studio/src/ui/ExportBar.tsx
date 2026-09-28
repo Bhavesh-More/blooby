@@ -23,7 +23,6 @@ async function withFonts(project: Parameters<typeof ensureFonts>[0]): Promise<st
 
 export function ExportBar() {
   const project = useEditor((s) => s.project);
-  const playhead = useEditor((s) => s.playhead);
   const [busy, setBusy] = useState<{ what: string; p: number } | null>(null);
   const [scale, setScale] = useState(1);
   const [exportOpen, setExportOpen] = useState(false);
@@ -140,7 +139,7 @@ export function ExportBar() {
               {mime?.startsWith('video/mp4') ? 'MP4 video' : 'WebM video'}
             </button>
             <button className="btn" disabled={!!busy}
-              onClick={() => raster('PNG', async () => download(await exportPng(project, playhead, scale * 2, background), `${base}-${Math.round(playhead)}ms.png`))}>
+              onClick={() => { const playhead = useEditor.getState().playhead; raster('PNG', async () => download(await exportPng(project, playhead, scale * 2, background), `${base}-${Math.round(playhead)}ms.png`)); }}>
               PNG of this frame
             </button>
             {note && <p className="hint">{note}</p>}

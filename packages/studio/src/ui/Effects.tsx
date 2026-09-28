@@ -90,7 +90,6 @@ export function Effects() {
   const project = useEditor((s) => s.project);
   const selection = useEditor((s) => s.selection);
   const selectedBlockId = useEditor((s) => s.selectedBlockId);
-  const playhead = useEditor((s) => s.playhead);
   const [libFor, setLibFor] = useState<string | null>(null);
   const [targetId, setTargetId] = useState<string | null>(null);
   const [picking, setPicking] = useState<'modifier' | 'effect' | null>(null);
@@ -144,7 +143,8 @@ export function Effects() {
   // the playhead in the scope's own frame, so "burst here" means here whichever scope
   // the panel is currently editing
   const clipStart = clipScoped ? blockStarts(tl)[tl.blocks.findIndex((b) => b.id === selectedBlockId)] ?? 0 : 0;
-  const localPlayhead = Math.max(0, Math.min(span, Math.round(playhead - clipStart)));
+  // read when a burst is placed, not subscribed: the panel re-rendered every frame of playback
+  const localPlayhead = () => Math.max(0, Math.min(span, Math.round(useEditor.getState().playhead - clipStart)));
 
   return (
     <>
@@ -391,7 +391,7 @@ export function Effects() {
               ...c.emitter(nodeId), blockId: scope,
               // a burst goes off where the playhead is: park it, click, done. A stream
               // takes its whole scope instead.
-              ...(c.burstMs ? { startMs: localPlayhead, endMs: Math.min(span, localPlayhead + c.burstMs) } : {}),
+              ...(c.burstMs ? { startMs: localPlayhead(), endMs: Math.min(span, localPlayhead() + c.burstMs) } : {}),
             });
           })}
         />

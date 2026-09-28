@@ -52,10 +52,10 @@ export const laneOfMascot = (rig: Rig, bodyId: string | undefined): string =>
  * sticker, a caption — plays in the lane of the clip that animates it, so the "Hi!" a
  * preset brings along follows the clip it came with, whichever mascot that is on.
  */
-export function laneOf(rig: Rig | undefined, tl: Timeline, nodeId: string): string {
+export function laneOf(rig: Rig | undefined, tl: Timeline, nodeId: string, tracks = tl.tracks): string {
   const m = rig && mascotOf(rig, nodeId);
   if (m) return laneOfMascot(rig, m.id);
-  for (const t of tl.tracks) {
+  for (const t of tracks) {
     if (t.nodeId !== nodeId || !t.blockId) continue;
     const b = tl.blocks.find((x) => x.id === t.blockId);
     if (b) return b.mascotId ?? '';

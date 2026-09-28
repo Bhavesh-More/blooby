@@ -38,6 +38,45 @@ const step = (element: string, title: string, description: string): DriveStep =>
 
 export const RELEASES: Release[] = [
   {
+    version: '2026.09.29',
+    date: '29 September 2026',
+    title: 'A fresh new look, and a much faster editor',
+    items: [
+      {
+        id: 'm3-expressive', surface: 'editor',
+        title: 'blooby has a new look',
+        body: 'The whole app now wears Material 3 Expressive in warm blooby apricot: softer surfaces, rounder controls, a big button for the one thing to do next (Create, Done, Export), and buttons that squish a little when you press them. Play turns into a square while it plays, keyframes pop in, menus and panels spring open — and all of it holds still if your system asks for reduced motion.',
+        tour: [step('stage', 'The stage', 'The tools now float at the bottom of the canvas, and the backdrop swatches sit in the top corner — out of your mascot’s way.')],
+      },
+      {
+        id: 'panels-in-order', surface: 'editor',
+        title: 'Everything where you would look for it',
+        body: 'The right-hand tabs are Design, Effects, Eyes, States and AI, in the order most people reach for them — the copilot and connecting Claude or ChatGPT now share the AI tab. In Design, Transform and Fill come first, then what the layer is made of, then Stroke and Effects; settings you rarely need live under More options. Open, download, the gallery and Start over moved into the ⋯ menu at the top.',
+        tour: [
+          step('tab-node', 'Design first', 'Select anything and its position, size and colour are right at the top.'),
+          step('tab-ai', 'AI in one place', 'Ask the copilot, or switch to Connect AI apps.'),
+          step('more-menu', 'Your project file', 'Open, download, the gallery and Start over — plus privacy and terms.'),
+        ],
+      },
+      {
+        id: 'tooltips-and-start', surface: 'editor',
+        title: 'Hover anything to see what it does',
+        body: 'Every button and control now explains itself in a proper tooltip, with its shortcut. With nothing selected, the Design tab offers three ways to begin: select the mascot, add a preset, or ask the copilot.',
+        tour: [step('rail-right', 'Start here', 'Nothing selected? Pick one of the three starting points.')],
+      },
+      {
+        id: 'faster-big-scenes', surface: 'editor',
+        title: 'Big scenes play smoothly',
+        body: 'Projects with hundreds of layers and keyframes used to stutter. Each frame now does a fraction of the work it did, and the panels no longer redraw on every frame of playback, so the stage keeps its full frame rate.',
+      },
+      {
+        id: 'legal-pages', surface: 'dashboard',
+        title: 'Privacy policy and terms of use',
+        body: 'What we collect, where it is stored, who handles it and what you can ask us to do with it — in plain words. Find Privacy and Terms under the sidebar, on the sign-in page and in the editor’s ⋯ menu.',
+      },
+    ],
+  },
+  {
     version: '2026.09.27.2',
     date: '27 September 2026',
     title: 'Copy and paste mascots, keyframed pins',

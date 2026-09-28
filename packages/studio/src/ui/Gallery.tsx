@@ -107,7 +107,7 @@ export function Gallery() {
           <input ref={file} type="file" accept=".json" hidden
             onChange={(e) => { const f = e.target.files?.[0]; if (f) importFile(f); e.target.value = ''; }} />
           <button className="btn sm" onClick={() => file.current?.click()}>Import JSON</button>
-          <button className="btn sm primary" onClick={newClip}>+ New clip</button>
+          <button className="btn primary" onClick={newClip}>+ New clip</button>
           <button className="btn ghost sm icon" title="Close" onClick={() => setOpen(false)}>✕</button>
         </div>
         <div className="gallery-grid">
